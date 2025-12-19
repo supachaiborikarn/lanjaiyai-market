@@ -10,7 +10,8 @@ import {
     FileText,
     LogOut,
     Menu,
-    X
+    X,
+    Receipt
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getCurrentUser, logout } from '@/lib/storage';
@@ -26,12 +27,14 @@ const adminMenuItems: MenuItem[] = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { href: '/admin/shops', label: 'จัดการร้านค้า', icon: <Store size={20} /> },
     { href: '/admin/meters', label: 'จดมิเตอร์', icon: <Zap size={20} /> },
+    { href: '/admin/invoices', label: 'ใบวางบิล', icon: <Receipt size={20} /> },
     { href: '/admin/payments', label: 'การชำระเงิน', icon: <CreditCard size={20} /> },
     { href: '/admin/reports', label: 'รายงาน', icon: <FileText size={20} /> }
 ];
 
 const shopMenuItems: MenuItem[] = [
     { href: '/shop/dashboard', label: 'หน้าหลัก', icon: <LayoutDashboard size={20} /> },
+    { href: '/shop/invoices', label: 'ใบวางบิล', icon: <Receipt size={20} /> },
     { href: '/shop/payments', label: 'ชำระเงิน', icon: <CreditCard size={20} /> }
 ];
 

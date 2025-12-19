@@ -1,4 +1,4 @@
-import { User, Shop, MeterReading, Payment } from '@/types';
+import { User, Shop, MeterReading, Payment, Invoice, InvoiceItem, ELECTRICITY_RATE, WATER_FLAT_RATE } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEYS = {
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
     SHOPS: 'lanjai_shops',
     METERS: 'lanjai_meters',
     PAYMENTS: 'lanjai_payments',
+    INVOICES: 'lanjai_invoices',
     CURRENT_USER: 'lanjai_current_user'
 };
 
@@ -245,12 +246,14 @@ export function getStatistics() {
     const shops = getShops();
     const payments = getPayments();
     const meters = getMeterReadings();
+    const invoices = getInvoices();
 
     const activeShops = shops.filter(s => s.status === 'active').length;
     const totalRent = shops.reduce((sum, s) => sum + s.monthlyRent, 0);
     const totalPaid = payments.filter(p => p.slipVerifyStatus === 'verified').reduce((sum, p) => sum + p.amount, 0);
     const pendingSlips = payments.filter(p => p.slipVerifyStatus === 'pending').length;
     const unpaidMeters = meters.filter(m => m.status === 'pending').length;
+    const pendingInvoices = invoices.filter(i => i.status === 'sent').length;
 
     return {
         totalShops: shops.length,
@@ -258,6 +261,162 @@ export function getStatistics() {
         totalRent,
         totalPaid,
         pendingSlips,
-        unpaidMeters
+        unpaidMeters,
+        pendingInvoices
     };
+}
+
+// ==================== Invoices ====================
+export function getInvoices(): Invoice[] {
+    if (!isClient) return [];
+    const data = localStorage.getItem(STORAGE_KEYS.INVOICES);
+    return data ? JSON.parse(data) : [];
+}
+
+export function saveInvoices(invoices: Invoice[]): void {
+    if (!isClient) return;
+    localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
+}
+
+export function getInvoicesByShop(shopId: string): Invoice[] {
+    return getInvoices().filter(i => i.shopId === shopId);
+}
+
+export function getInvoiceById(id: string): Invoice | undefined {
+    return getInvoices().find(i => i.id === id);
+}
+
+export function getPendingInvoicesForShop(shopId: string): Invoice[] {
+    return getInvoices().filter(i =>
+        i.shopId === shopId &&
+        (i.status === 'sent' || i.status === 'overdue')
+    );
+}
+
+export function generateInvoiceNumber(month: string): string {
+    const invoices = getInvoices();
+    const monthInvoices = invoices.filter(i => i.month === month);
+    const seq = (monthInvoices.length + 1).toString().padStart(3, '0');
+    return `INV-${month.replace('-', '')}-${seq}`;
+}
+
+export function addInvoice(invoice: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt' | 'updatedAt'>): Invoice {
+    const invoices = getInvoices();
+    const newInvoice: Invoice = {
+        ...invoice,
+        id: uuidv4(),
+        invoiceNumber: generateInvoiceNumber(invoice.month),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    invoices.push(newInvoice);
+    saveInvoices(invoices);
+    return newInvoice;
+}
+
+export function updateInvoice(id: string, updates: Partial<Invoice>): Invoice | null {
+    const invoices = getInvoices();
+    const index = invoices.findIndex(i => i.id === id);
+    if (index === -1) return null;
+    invoices[index] = { ...invoices[index], ...updates, updatedAt: new Date().toISOString() };
+    saveInvoices(invoices);
+    return invoices[index];
+}
+
+export function deleteInvoice(id: string): boolean {
+    const invoices = getInvoices();
+    const filtered = invoices.filter(i => i.id !== id);
+    if (filtered.length === invoices.length) return false;
+    saveInvoices(filtered);
+    return true;
+}
+
+export function sendInvoice(id: string): Invoice | null {
+    return updateInvoice(id, {
+        status: 'sent',
+        sentAt: new Date().toISOString()
+    });
+}
+
+export function markInvoiceAsPaid(id: string, paymentId?: string): Invoice | null {
+    return updateInvoice(id, {
+        status: 'paid',
+        paidAt: new Date().toISOString(),
+        paidAmount: getInvoiceById(id)?.totalAmount || 0
+    });
+}
+
+export function createMonthlyInvoices(month: string): Invoice[] {
+    const shops = getShops().filter(s => s.status === 'active');
+    const meters = getMeterReadings().filter(m => m.month === month);
+    const existingInvoices = getInvoices().filter(i => i.month === month);
+    const existingShopIds = existingInvoices.map(i => i.shopId);
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 15); // กำหนดชำระ 15 วัน
+
+    const newInvoices: Invoice[] = [];
+
+    for (const shop of shops) {
+        // ข้ามถ้ามีใบบิลแล้ว
+        if (existingShopIds.includes(shop.id)) continue;
+
+        const items: InvoiceItem[] = [];
+
+        // ค่าเช่า
+        items.push({
+            type: 'rent',
+            description: `ค่าเช่าประจำเดือน ${month}`,
+            amount: shop.monthlyRent
+        });
+
+        // ค่าน้ำไฟจากมิเตอร์
+        const meterReading = meters.find(m => m.shopId === shop.id);
+        if (meterReading) {
+            items.push({
+                type: 'electricity',
+                description: `ค่าไฟฟ้า ${meterReading.unitsUsed} หน่วย x ${ELECTRICITY_RATE} บาท`,
+                amount: meterReading.electricityCost,
+                meterReadingId: meterReading.id
+            });
+            items.push({
+                type: 'water',
+                description: 'ค่าน้ำประปารายเดือน',
+                amount: meterReading.waterCost,
+                meterReadingId: meterReading.id
+            });
+        } else {
+            // ถ้ายังไม่จดมิเตอร์ ใช้ค่า flat rate
+            items.push({
+                type: 'water',
+                description: 'ค่าน้ำประปารายเดือน',
+                amount: WATER_FLAT_RATE
+            });
+        }
+
+        const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+
+        const invoice = addInvoice({
+            shopId: shop.id,
+            month,
+            items,
+            totalAmount,
+            paidAmount: 0,
+            status: 'draft',
+            dueDate: dueDate.toISOString()
+        });
+
+        newInvoices.push(invoice);
+    }
+
+    return newInvoices;
+}
+
+export function sendAllDraftInvoices(month: string): number {
+    const invoices = getInvoices().filter(i => i.month === month && i.status === 'draft');
+    let count = 0;
+    for (const invoice of invoices) {
+        if (sendInvoice(invoice.id)) count++;
+    }
+    return count;
 }

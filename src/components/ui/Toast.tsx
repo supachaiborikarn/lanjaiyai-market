@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, X } from 'lucide-react';
+import { CheckCircle, XCircle, X, Info } from 'lucide-react';
 
 interface ToastProps {
     message: string;
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'info';
     onClose: () => void;
     duration?: number;
 }
@@ -16,13 +16,17 @@ export function Toast({ message, type, onClose, duration = 3000 }: ToastProps) {
         return () => clearTimeout(timer);
     }, [onClose, duration]);
 
+    const getIcon = () => {
+        switch (type) {
+            case 'success': return <CheckCircle size={20} />;
+            case 'error': return <XCircle size={20} />;
+            case 'info': return <Info size={20} />;
+        }
+    };
+
     return (
         <div className={`toast toast-${type} flex items-center gap-3`}>
-            {type === 'success' ? (
-                <CheckCircle size={20} />
-            ) : (
-                <XCircle size={20} />
-            )}
+            {getIcon()}
             <span className="flex-1">{message}</span>
             <button onClick={onClose} className="p-1 hover:opacity-80">
                 <X size={16} />
@@ -35,13 +39,13 @@ export function Toast({ message, type, onClose, duration = 3000 }: ToastProps) {
 interface ToastItem {
     id: string;
     message: string;
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'info';
 }
 
 let toastId = 0;
 let addToastFn: ((toast: Omit<ToastItem, 'id'>) => void) | null = null;
 
-export function showToast(message: string, type: 'success' | 'error' = 'success') {
+export function showToast(message: string, type: 'success' | 'error' | 'info' = 'success') {
     if (addToastFn) {
         addToastFn({ message, type });
     }

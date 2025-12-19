@@ -107,3 +107,46 @@ export const SLIP_STATUS_LABELS: Record<SlipVerifyStatus, string> = {
   verified: 'ผ่านการตรวจสอบ',
   rejected: 'ไม่ผ่าน'
 };
+
+// ==================== Invoice Types ====================
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+export type InvoiceItemType = 'rent' | 'electricity' | 'water' | 'other';
+
+export interface InvoiceItem {
+  type: InvoiceItemType;
+  description: string;
+  amount: number;
+  meterReadingId?: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  shopId: string;
+  month: string;
+  items: InvoiceItem[];
+  totalAmount: number;
+  paidAmount: number;
+  status: InvoiceStatus;
+  dueDate: string;
+  sentAt?: string;
+  paidAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft: 'ฉบับร่าง',
+  sent: 'ส่งแล้ว',
+  paid: 'ชำระแล้ว',
+  overdue: 'เกินกำหนด',
+  cancelled: 'ยกเลิก'
+};
+
+export const INVOICE_ITEM_TYPE_LABELS: Record<InvoiceItemType, string> = {
+  rent: 'ค่าเช่า',
+  electricity: 'ค่าไฟฟ้า',
+  water: 'ค่าน้ำ',
+  other: 'อื่นๆ'
+};
