@@ -13,7 +13,8 @@ import {
     Filter,
     Calendar,
     Store,
-    Receipt
+    Receipt,
+    Loader2
 } from 'lucide-react';
 import {
     getShops,
@@ -23,7 +24,7 @@ import {
     sendAllDraftInvoices,
     markInvoiceAsPaid,
     deleteInvoice
-} from '@/lib/storage';
+} from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getMonthName, getCurrentMonth } from '@/lib/utils';
 import { Shop, Invoice, INVOICE_STATUS_LABELS, INVOICE_ITEM_TYPE_LABELS } from '@/types';
 import { Modal } from '@/components/ui/Modal';
@@ -32,6 +33,7 @@ import { showToast } from '@/components/ui/Toast';
 export default function InvoicesPage() {
     const [shops, setShops] = useState<Shop[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -42,11 +44,22 @@ export default function InvoicesPage() {
         loadData();
     }, [selectedMonth]);
 
-    const loadData = () => {
-        setShops(getShops());
-        setInvoices(getInvoices().sort((a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        ));
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [shopsData, invoicesData] = await Promise.all([
+                getShops(),
+                getInvoices()
+            ]);
+            setShops(shopsData);
+            setInvoices(invoicesData.sort((a, b) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            ));
+        } catch (error) {
+            console.error('Error loading data:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const getShop = (shopId: string) => shops.find(s => s.id === shopId);
@@ -57,47 +70,55 @@ export default function InvoicesPage() {
         return matchesMonth && matchesStatus;
     });
 
-    const handleCreateMonthlyInvoices = () => {
-        const newInvoices = createMonthlyInvoices(selectedMonth);
-        if (newInvoices.length > 0) {
-            showToast(`สร้างใบบิลสำเร็จ ${newInvoices.length} ใบ`, 'success');
-            loadData();
-        } else {
-            showToast('ร้านค้าทั้งหมดมีใบบิลแล้ว', 'info');
+    const handleCreateMonthlyInvoices = async () => {
+        try {
+            const newInvoices = await createMonthlyInvoices(selectedMonth);
+            if (newInvoices.length > 0) {
+                showToast(`สร้างใบบิลสำเร็จ ${newInvoices.length} ใบ`, 'success');
+                await loadData();
+            } else {
+                showToast('ร้านค้าทั้งหมดมีใบบิลแล้ว', 'info');
+            }
+            setIsCreateModalOpen(false);
+        } catch (error) {
+            console.error('Error creating invoices:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
         }
-        setIsCreateModalOpen(false);
     };
 
-    const handleSendInvoice = (invoice: Invoice) => {
-        if (sendInvoice(invoice.id)) {
+    const handleSendInvoice = async (invoice: Invoice) => {
+        const result = await sendInvoice(invoice.id);
+        if (result) {
             showToast(`ส่งใบบิล ${invoice.invoiceNumber} สำเร็จ`, 'success');
-            loadData();
+            await loadData();
         }
     };
 
-    const handleSendAll = () => {
-        const count = sendAllDraftInvoices(selectedMonth);
+    const handleSendAll = async () => {
+        const count = await sendAllDraftInvoices(selectedMonth);
         if (count > 0) {
             showToast(`ส่งใบบิลสำเร็จ ${count} ใบ`, 'success');
-            loadData();
+            await loadData();
         } else {
             showToast('ไม่มีใบบิลที่รอส่ง', 'info');
         }
     };
 
-    const handleMarkAsPaid = (invoice: Invoice) => {
-        if (markInvoiceAsPaid(invoice.id)) {
+    const handleMarkAsPaid = async (invoice: Invoice) => {
+        const result = await markInvoiceAsPaid(invoice.id);
+        if (result) {
             showToast(`เคลียร์บิล ${invoice.invoiceNumber} สำเร็จ`, 'success');
-            loadData();
+            await loadData();
             setIsDetailModalOpen(false);
         }
     };
 
-    const handleDelete = (invoice: Invoice) => {
+    const handleDelete = async (invoice: Invoice) => {
         if (confirm(`ต้องการลบใบบิล ${invoice.invoiceNumber} หรือไม่?`)) {
-            if (deleteInvoice(invoice.id)) {
+            const result = await deleteInvoice(invoice.id);
+            if (result) {
                 showToast('ลบใบบิลสำเร็จ', 'success');
-                loadData();
+                await loadData();
             }
         }
     };

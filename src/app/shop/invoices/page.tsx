@@ -19,7 +19,7 @@ import {
     getShopById,
     getInvoicesByShop,
     getPendingInvoicesForShop
-} from '@/lib/storage';
+} from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getMonthName } from '@/lib/utils';
 import { User, Shop, Invoice, INVOICE_STATUS_LABELS, INVOICE_ITEM_TYPE_LABELS } from '@/types';
 import { Modal } from '@/components/ui/Modal';
@@ -35,24 +35,35 @@ export default function ShopInvoicesPage() {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     useEffect(() => {
-        const currentUser = getCurrentUser();
-        if (!currentUser || currentUser.role !== 'shop_owner') {
-            router.push('/');
-            return;
-        }
-
-        setUser(currentUser);
-
-        if (currentUser.shopId) {
-            const shopData = getShopById(currentUser.shopId);
-            if (shopData) {
-                setShop(shopData);
-                setInvoices(getInvoicesByShop(shopData.id).sort((a, b) =>
-                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                ));
-                setPendingInvoices(getPendingInvoicesForShop(shopData.id));
+        const loadData = async () => {
+            const currentUser = getCurrentUser();
+            if (!currentUser || currentUser.role !== 'shop_owner') {
+                router.push('/');
+                return;
             }
-        }
+
+            setUser(currentUser);
+
+            if (currentUser.shopId) {
+                try {
+                    const [shopData, allInvoices, pending] = await Promise.all([
+                        getShopById(currentUser.shopId),
+                        getInvoicesByShop(currentUser.shopId),
+                        getPendingInvoicesForShop(currentUser.shopId)
+                    ]);
+                    if (shopData) {
+                        setShop(shopData);
+                        setInvoices(allInvoices.sort((a, b) =>
+                            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                        ));
+                        setPendingInvoices(pending);
+                    }
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                }
+            }
+        };
+        loadData();
     }, [router]);
 
     const getStatusBadge = (status: string) => {

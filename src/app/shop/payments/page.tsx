@@ -21,7 +21,7 @@ import {
     getPayments,
     addPayment,
     updateMeterReading
-} from '@/lib/storage';
+} from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getMonthName } from '@/lib/utils';
 import { User, Shop, MeterReading, Payment, SlipAnalysisResult, PAYMENT_TYPE_LABELS } from '@/types';
 
@@ -46,7 +46,7 @@ export default function ShopPaymentsPage() {
         loadData();
     }, [router]);
 
-    const loadData = () => {
+    const loadData = async () => {
         const currentUser = getCurrentUser();
         if (!currentUser || currentUser.role !== 'shop_owner') {
             router.push('/');
@@ -56,13 +56,21 @@ export default function ShopPaymentsPage() {
         setUser(currentUser);
 
         if (currentUser.shopId) {
-            const shopData = getShopById(currentUser.shopId);
-            if (shopData) {
-                setShop(shopData);
-                setMeters(getMeterReadings().filter(m => m.shopId === shopData.id));
-                setPayments(getPayments().filter(p => p.shopId === shopData.id).sort((a, b) =>
-                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                ));
+            try {
+                const [shopData, allMeters, allPayments] = await Promise.all([
+                    getShopById(currentUser.shopId),
+                    getMeterReadings(),
+                    getPayments()
+                ]);
+                if (shopData) {
+                    setShop(shopData);
+                    setMeters(allMeters.filter(m => m.shopId === shopData.id));
+                    setPayments(allPayments.filter(p => p.shopId === shopData.id).sort((a, b) =>
+                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                    ));
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
             }
         }
     };
@@ -87,29 +95,34 @@ export default function ShopPaymentsPage() {
         }));
     };
 
-    const handleSubmitPayment = () => {
+    const handleSubmitPayment = async () => {
         if (!shop || !formData.slipImageUrl) return;
 
-        addPayment({
-            shopId: shop.id,
-            meterReadingId: selectedMeter?.id,
-            paymentDate: new Date().toISOString(),
-            amount: formData.amount,
-            type: formData.type,
-            description: formData.description,
-            slipImageUrl: formData.slipImageUrl,
-            slipVerifyStatus: 'pending'
-        });
+        try {
+            await addPayment({
+                shopId: shop.id,
+                meterReadingId: selectedMeter?.id,
+                paymentDate: new Date().toISOString(),
+                amount: formData.amount,
+                type: formData.type,
+                description: formData.description,
+                slipImageUrl: formData.slipImageUrl,
+                slipVerifyStatus: 'pending'
+            });
 
-        // Mark meter as paid if utilities
-        if (selectedMeter) {
-            updateMeterReading(selectedMeter.id, { status: 'paid' });
+            // Mark meter as paid if utilities
+            if (selectedMeter) {
+                await updateMeterReading(selectedMeter.id, { status: 'paid' });
+            }
+
+            showToast('ส่งสลิปการชำระเงินเรียบร้อย รอการตรวจสอบ', 'success');
+            await loadData();
+            setIsModalOpen(false);
+            setSelectedMeter(null);
+        } catch (error) {
+            console.error('Error submitting payment:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
         }
-
-        showToast('ส่งสลิปการชำระเงินเรียบร้อย รอการตรวจสอบ', 'success');
-        loadData();
-        setIsModalOpen(false);
-        setSelectedMeter(null);
     };
 
     const getStatusIcon = (status: string) => {

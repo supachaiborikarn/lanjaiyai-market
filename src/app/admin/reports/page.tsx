@@ -9,7 +9,7 @@ import {
     Store,
     AlertCircle
 } from 'lucide-react';
-import { getShops, getPayments, getMeterReadings } from '@/lib/storage';
+import { getShops, getPayments, getMeterReadings } from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getMonthName } from '@/lib/utils';
 import { Shop, Payment, MeterReading } from '@/types';
 
@@ -21,9 +21,21 @@ export default function ReportsPage() {
     const [reportType, setReportType] = useState<'income' | 'pending' | 'utilities'>('income');
 
     useEffect(() => {
-        setShops(getShops());
-        setPayments(getPayments());
-        setMeters(getMeterReadings());
+        const loadData = async () => {
+            try {
+                const [shopsData, paymentsData, metersData] = await Promise.all([
+                    getShops(),
+                    getPayments(),
+                    getMeterReadings()
+                ]);
+                setShops(shopsData);
+                setPayments(paymentsData);
+                setMeters(metersData);
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        };
+        loadData();
     }, []);
 
     const getShop = (shopId: string) => shops.find(s => s.id === shopId);

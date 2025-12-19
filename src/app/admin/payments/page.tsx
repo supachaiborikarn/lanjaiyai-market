@@ -21,7 +21,7 @@ import {
     addPayment,
     updatePayment,
     updateMeterReading
-} from '@/lib/storage';
+} from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getCurrentMonth, getMonthName } from '@/lib/utils';
 import { Shop, Payment, MeterReading, SlipAnalysisResult, SLIP_STATUS_LABELS, PAYMENT_TYPE_LABELS } from '@/types';
 
@@ -54,10 +54,19 @@ export default function PaymentsPage() {
         loadData();
     }, []);
 
-    const loadData = () => {
-        setShops(getShops());
-        setPayments(getPayments());
-        setMeters(getMeterReadings());
+    const loadData = async () => {
+        try {
+            const [shopsData, paymentsData, metersData] = await Promise.all([
+                getShops(),
+                getPayments(),
+                getMeterReadings()
+            ]);
+            setShops(shopsData);
+            setPayments(paymentsData);
+            setMeters(metersData);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        }
     };
 
     const getShop = (shopId: string) => shops.find(s => s.id === shopId);
@@ -104,29 +113,34 @@ export default function PaymentsPage() {
         }));
     };
 
-    const handleAddPayment = () => {
-        addPayment({
-            shopId: addFormData.shopId,
-            paymentDate: new Date().toISOString(),
-            amount: addFormData.amount,
-            type: addFormData.type,
-            description: addFormData.description,
-            slipImageUrl: addFormData.slipImageUrl,
-            slipVerifyStatus: addFormData.slipVerifyStatus,
-            verifiedAt: addFormData.slipVerifyStatus === 'verified' ? new Date().toISOString() : undefined
-        });
+    const handleAddPayment = async () => {
+        try {
+            await addPayment({
+                shopId: addFormData.shopId,
+                paymentDate: new Date().toISOString(),
+                amount: addFormData.amount,
+                type: addFormData.type,
+                description: addFormData.description,
+                slipImageUrl: addFormData.slipImageUrl,
+                slipVerifyStatus: addFormData.slipVerifyStatus,
+                verifiedAt: addFormData.slipVerifyStatus === 'verified' ? new Date().toISOString() : undefined
+            });
 
-        // Mark meter as paid if utilities payment
-        if (addFormData.type === 'utilities') {
-            const meter = meters.find(m => m.shopId === addFormData.shopId && m.month === selectedMonth);
-            if (meter) {
-                updateMeterReading(meter.id, { status: 'paid' });
+            // Mark meter as paid if utilities payment
+            if (addFormData.type === 'utilities') {
+                const meter = meters.find(m => m.shopId === addFormData.shopId && m.month === selectedMonth);
+                if (meter) {
+                    await updateMeterReading(meter.id, { status: 'paid' });
+                }
             }
-        }
 
-        showToast('บันทึกการชำระเงินเรียบร้อย', 'success');
-        loadData();
-        setIsAddModalOpen(false);
+            showToast('บันทึกการชำระเงินเรียบร้อย', 'success');
+            await loadData();
+            setIsAddModalOpen(false);
+        } catch (error) {
+            console.error('Error adding payment:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
+        }
     };
 
     const openVerifyModal = (payment: Payment) => {
@@ -134,16 +148,20 @@ export default function PaymentsPage() {
         setIsVerifyModalOpen(true);
     };
 
-    const handleVerify = (status: 'verified' | 'rejected', note?: string) => {
+    const handleVerify = async (status: 'verified' | 'rejected', note?: string) => {
         if (selectedPayment) {
-            updatePayment(selectedPayment.id, {
-                slipVerifyStatus: status,
-                slipVerifyNote: note,
-                verifiedAt: new Date().toISOString()
-            });
-            showToast(status === 'verified' ? 'ยืนยันสลิปเรียบร้อย' : 'ปฏิเสธสลิป', status === 'verified' ? 'success' : 'error');
-            loadData();
-            setIsVerifyModalOpen(false);
+            try {
+                await updatePayment(selectedPayment.id, {
+                    slipVerifyStatus: status,
+                    slipVerifyNote: note,
+                    verifiedAt: new Date().toISOString()
+                });
+                showToast(status === 'verified' ? 'ยืนยันสลิปเรียบร้อย' : 'ปฏิเสธสลิป', status === 'verified' ? 'success' : 'error');
+                await loadData();
+                setIsVerifyModalOpen(false);
+            } catch (error) {
+                console.error('Error verifying payment:', error);
+            }
         }
     };
 

@@ -28,9 +28,29 @@ export interface Shop {
   contractEnd: string;
   monthlyRent: number;
   imageUrl?: string;
+  // ข้อมูลมัดจำ
+  depositAmount?: number;
+  depositPaidDate?: string;
+  depositSlipUrl?: string;
+  // ข้อมูลค่าเช่าล่วงหน้า
+  advanceRentMonths?: number;
+  nextRentDueDate?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+// สลิปค่าเช่า
+export interface RentSlip {
+  id: string;
+  shopId: string;
+  month: string;
+  amount: number;
+  slipUrl: string;
+  paidDate: string;
+  note?: string;
+  createdAt: string;
+}
+
 
 export interface MeterReading {
   id: string;

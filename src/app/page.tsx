@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Store, User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { login } from '@/lib/storage';
+import { login } from '@/lib/storage-supabase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,19 +18,22 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
-    // Simulate loading
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      const user = await login(username, password);
 
-    const user = login(username, password);
-
-    if (user) {
-      if (user.role === 'admin') {
-        router.push('/admin/dashboard');
+      if (user) {
+        if (user.role === 'admin') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/shop/dashboard');
+        }
       } else {
-        router.push('/shop/dashboard');
+        setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        setIsLoading(false);
       }
-    } else {
-      setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('เกิดข้อผิดพลาด กรุณาลองใหม่');
       setIsLoading(false);
     }
   };

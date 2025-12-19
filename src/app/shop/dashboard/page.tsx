@@ -13,7 +13,7 @@ import {
     Clock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getShopById, getMeterReadings, getPayments } from '@/lib/storage';
+import { getCurrentUser, getShopById, getMeterReadings, getPayments } from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getCurrentMonth, getMonthName, isContractExpiringSoon, getDaysUntilExpiry } from '@/lib/utils';
 import { User, Shop, MeterReading, Payment, SHOP_STATUS_LABELS } from '@/types';
 import Link from 'next/link';
@@ -26,22 +26,33 @@ export default function ShopDashboard() {
     const [payments, setPayments] = useState<Payment[]>([]);
 
     useEffect(() => {
-        const currentUser = getCurrentUser();
-        if (!currentUser || currentUser.role !== 'shop_owner') {
-            router.push('/');
-            return;
-        }
-
-        setUser(currentUser);
-
-        if (currentUser.shopId) {
-            const shopData = getShopById(currentUser.shopId);
-            if (shopData) {
-                setShop(shopData);
-                setMeters(getMeterReadings().filter(m => m.shopId === shopData.id));
-                setPayments(getPayments().filter(p => p.shopId === shopData.id));
+        const loadData = async () => {
+            const currentUser = getCurrentUser();
+            if (!currentUser || currentUser.role !== 'shop_owner') {
+                router.push('/');
+                return;
             }
-        }
+
+            setUser(currentUser);
+
+            if (currentUser.shopId) {
+                try {
+                    const [shopData, allMeters, allPayments] = await Promise.all([
+                        getShopById(currentUser.shopId),
+                        getMeterReadings(),
+                        getPayments()
+                    ]);
+                    if (shopData) {
+                        setShop(shopData);
+                        setMeters(allMeters.filter(m => m.shopId === shopData.id));
+                        setPayments(allPayments.filter(p => p.shopId === shopData.id));
+                    }
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                }
+            }
+        };
+        loadData();
     }, [router]);
 
     if (!shop) {
@@ -238,7 +249,7 @@ export default function ShopDashboard() {
                                 <div className="text-right">
                                     <p className="font-semibold">{formatCurrency(payment.amount)}</p>
                                     <span className={`badge ${payment.slipVerifyStatus === 'verified' ? 'badge-success' :
-                                            payment.slipVerifyStatus === 'rejected' ? 'badge-danger' : 'badge-warning'
+                                        payment.slipVerifyStatus === 'rejected' ? 'badge-danger' : 'badge-warning'
                                         } text-xs`}>
                                         {payment.slipVerifyStatus === 'verified' ? 'ผ่าน' :
                                             payment.slipVerifyStatus === 'rejected' ? 'ไม่ผ่าน' : 'รอตรวจ'}

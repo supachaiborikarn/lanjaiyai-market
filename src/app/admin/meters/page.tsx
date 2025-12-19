@@ -8,7 +8,8 @@ import {
     Calculator,
     Store,
     Calendar,
-    Check
+    Check,
+    Loader2
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 import {
@@ -17,13 +18,14 @@ import {
     getLatestMeterReading,
     addMeterReading,
     updateMeterReading
-} from '@/lib/storage';
+} from '@/lib/storage-supabase';
 import { formatCurrency, getCurrentMonth, getMonthName } from '@/lib/utils';
 import { Shop, MeterReading, ELECTRICITY_RATE, WATER_FLAT_RATE } from '@/types';
 
 export default function MetersPage() {
     const [shops, setShops] = useState<Shop[]>([]);
     const [readings, setReadings] = useState<MeterReading[]>([]);
+    const [loading, setLoading] = useState(true);
     const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
     const [editingReadings, setEditingReadings] = useState<Record<string, { previous: number; current: number }>>({});
 
@@ -31,21 +33,33 @@ export default function MetersPage() {
         loadData();
     }, []);
 
-    const loadData = () => {
-        const allShops = getShops();
-        setShops(allShops.filter(s => s.status === 'active'));
-        setReadings(getMeterReadings());
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [allShops, allReadings] = await Promise.all([
+                getShops(),
+                getMeterReadings()
+            ]);
 
-        // Initialize editing readings
-        const initial: Record<string, { previous: number; current: number }> = {};
-        allShops.forEach(shop => {
-            const latestReading = getLatestMeterReading(shop.id);
-            initial[shop.id] = {
-                previous: latestReading?.currentReading || 0,
-                current: latestReading?.currentReading || 0
-            };
-        });
-        setEditingReadings(initial);
+            const activeShops = allShops.filter(s => s.status === 'active');
+            setShops(activeShops);
+            setReadings(allReadings);
+
+            // Initialize editing readings
+            const initial: Record<string, { previous: number; current: number }> = {};
+            for (const shop of activeShops) {
+                const latestReading = await getLatestMeterReading(shop.id);
+                initial[shop.id] = {
+                    previous: latestReading?.currentReading || 0,
+                    current: latestReading?.currentReading || 0
+                };
+            }
+            setEditingReadings(initial);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const getShopReading = (shopId: string, month: string): MeterReading | undefined => {
@@ -64,40 +78,43 @@ export default function MetersPage() {
         return { units, electricity, water, total };
     };
 
-    const handleSaveReading = (shop: Shop) => {
+    const handleSaveReading = async (shop: Shop) => {
         const reading = editingReadings[shop.id];
         if (!reading) return;
 
         const costs = calculateCost(shop.id);
         const existingReading = getShopReading(shop.id, currentMonth);
 
-        if (existingReading) {
-            updateMeterReading(existingReading.id, {
-                previousReading: reading.previous,
-                currentReading: reading.current,
-                unitsUsed: costs.units,
-                electricityCost: costs.electricity,
-                waterCost: costs.water,
-                totalCost: costs.total
-            });
+        try {
+            if (existingReading) {
+                await updateMeterReading(existingReading.id, {
+                    previousReading: reading.previous,
+                    currentReading: reading.current,
+                    unitsUsed: costs.units,
+                    electricityCost: costs.electricity,
+                    waterCost: costs.water,
+                    totalCost: costs.total
+                });
+            } else {
+                await addMeterReading({
+                    shopId: shop.id,
+                    readingDate: new Date().toISOString(),
+                    month: currentMonth,
+                    previousReading: reading.previous,
+                    currentReading: reading.current,
+                    unitsUsed: costs.units,
+                    electricityCost: costs.electricity,
+                    waterCost: costs.water,
+                    totalCost: costs.total,
+                    status: 'pending'
+                });
+            }
             showToast(`บันทึกมิเตอร์ ${shop.name} เรียบร้อย`, 'success');
-        } else {
-            addMeterReading({
-                shopId: shop.id,
-                readingDate: new Date().toISOString(),
-                month: currentMonth,
-                previousReading: reading.previous,
-                currentReading: reading.current,
-                unitsUsed: costs.units,
-                electricityCost: costs.electricity,
-                waterCost: costs.water,
-                totalCost: costs.total,
-                status: 'pending'
-            });
-            showToast(`บันทึกมิเตอร์ ${shop.name} เรียบร้อย`, 'success');
+            await loadData();
+        } catch (error) {
+            console.error('Error saving meter reading:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
         }
-
-        loadData();
     };
 
     const updateReading = (shopId: string, field: 'previous' | 'current', value: number) => {

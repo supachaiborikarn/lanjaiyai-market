@@ -9,22 +9,25 @@ import {
     Store,
     Phone,
     Calendar,
-    AlertCircle
+    AlertCircle,
+    Loader2
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { showToast } from '@/components/ui/Toast';
-import { getShops, addShop, updateShop, deleteShop } from '@/lib/storage';
+import { getShops, addShop, updateShop, deleteShop } from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, formatDateInput, isContractExpiringSoon, getDaysUntilExpiry, isContractExpired } from '@/lib/utils';
 import { Shop, SHOP_CATEGORIES, SHOP_STATUS_LABELS, ShopStatus } from '@/types';
 
 export default function ShopsPage() {
     const [shops, setShops] = useState<Shop[]>([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingShop, setEditingShop] = useState<Shop | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [shopToDelete, setShopToDelete] = useState<Shop | null>(null);
+    const [saving, setSaving] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -43,8 +46,17 @@ export default function ShopsPage() {
         loadShops();
     }, []);
 
-    const loadShops = () => {
-        setShops(getShops());
+    const loadShops = async () => {
+        setLoading(true);
+        try {
+            const data = await getShops();
+            setShops(data);
+        } catch (error) {
+            console.error('Error loading shops:', error);
+            showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const filteredShops = shops.filter(shop => {
@@ -87,28 +99,44 @@ export default function ShopsPage() {
         setIsModalOpen(true);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setSaving(true);
 
-        if (editingShop) {
-            updateShop(editingShop.id, formData);
-            showToast('อัปเดตข้อมูลร้านค้าเรียบร้อย', 'success');
-        } else {
-            addShop(formData);
-            showToast('เพิ่มร้านค้าใหม่เรียบร้อย', 'success');
+        try {
+            if (editingShop) {
+                await updateShop(editingShop.id, formData);
+                showToast('อัปเดตข้อมูลร้านค้าเรียบร้อย', 'success');
+            } else {
+                await addShop(formData);
+                showToast('เพิ่มร้านค้าใหม่เรียบร้อย', 'success');
+            }
+
+            await loadShops();
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error('Error saving shop:', error);
+            showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+        } finally {
+            setSaving(false);
         }
-
-        loadShops();
-        setIsModalOpen(false);
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (shopToDelete) {
-            deleteShop(shopToDelete.id);
-            showToast('ลบร้านค้าเรียบร้อย', 'success');
-            loadShops();
-            setIsDeleteModalOpen(false);
-            setShopToDelete(null);
+            setSaving(true);
+            try {
+                await deleteShop(shopToDelete.id);
+                showToast('ลบร้านค้าเรียบร้อย', 'success');
+                await loadShops();
+                setIsDeleteModalOpen(false);
+                setShopToDelete(null);
+            } catch (error) {
+                console.error('Error deleting shop:', error);
+                showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+            } finally {
+                setSaving(false);
+            }
         }
     };
 
@@ -130,6 +158,17 @@ export default function ShopsPage() {
         }
         return null;
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="text-center">
+                    <Loader2 size={48} className="mx-auto text-blue-500 animate-spin mb-4" />
+                    <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="animate-fadeIn">
@@ -249,10 +288,11 @@ export default function ShopsPage() {
                 size="lg"
                 footer={
                     <>
-                        <button onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
+                        <button onClick={() => setIsModalOpen(false)} className="btn btn-secondary" disabled={saving}>
                             ยกเลิก
                         </button>
-                        <button onClick={handleSubmit} className="btn btn-primary">
+                        <button onClick={handleSubmit} className="btn btn-primary" disabled={saving}>
+                            {saving ? <Loader2 size={18} className="animate-spin mr-2" /> : null}
                             {editingShop ? 'บันทึก' : 'เพิ่มร้านค้า'}
                         </button>
                     </>
@@ -364,10 +404,11 @@ export default function ShopsPage() {
                 size="sm"
                 footer={
                     <>
-                        <button onClick={() => setIsDeleteModalOpen(false)} className="btn btn-secondary">
+                        <button onClick={() => setIsDeleteModalOpen(false)} className="btn btn-secondary" disabled={saving}>
                             ยกเลิก
                         </button>
-                        <button onClick={handleDelete} className="btn btn-danger">
+                        <button onClick={handleDelete} className="btn btn-danger" disabled={saving}>
+                            {saving ? <Loader2 size={18} className="animate-spin mr-2" /> : null}
                             ลบร้านค้า
                         </button>
                     </>

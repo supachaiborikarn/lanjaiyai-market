@@ -7,9 +7,8 @@ import {
     AlertCircle,
     FileImage,
     TrendingUp,
-    Users,
-    Zap,
-    Calendar
+    Calendar,
+    Loader2
 } from 'lucide-react';
 import {
     AreaChart,
@@ -22,7 +21,7 @@ import {
     BarChart,
     Bar
 } from 'recharts';
-import { getShops, getMeterReadings, getPayments, getStatistics } from '@/lib/storage';
+import { getShops, getMeterReadings, getPayments, getStatistics } from '@/lib/storage-supabase';
 import { formatCurrency, isContractExpiringSoon, getDaysUntilExpiry } from '@/lib/utils';
 import { Shop, MeterReading, Payment } from '@/types';
 import Link from 'next/link';
@@ -39,8 +38,8 @@ const revenueData = [
 
 export default function AdminDashboard() {
     const [shops, setShops] = useState<Shop[]>([]);
-    const [meters, setMeters] = useState<MeterReading[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalShops: 0,
         activeShops: 0,
@@ -51,14 +50,38 @@ export default function AdminDashboard() {
     });
 
     useEffect(() => {
-        setShops(getShops());
-        setMeters(getMeterReadings());
-        setPayments(getPayments());
-        setStats(getStatistics());
+        const loadData = async () => {
+            try {
+                const [shopsData, paymentsData, statsData] = await Promise.all([
+                    getShops(),
+                    getPayments(),
+                    getStatistics()
+                ]);
+                setShops(shopsData);
+                setPayments(paymentsData);
+                setStats(statsData);
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
     }, []);
 
     const expiringContracts = shops.filter(s => isContractExpiringSoon(s.contractEnd, 60));
     const pendingPayments = payments.filter(p => p.slipVerifyStatus === 'pending');
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="text-center">
+                    <Loader2 size={48} className="mx-auto text-blue-500 animate-spin mb-4" />
+                    <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="animate-fadeIn">
