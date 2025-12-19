@@ -26,15 +26,36 @@ import { formatCurrency, isContractExpiringSoon, getDaysUntilExpiry } from '@/li
 import { Shop, MeterReading, Payment } from '@/types';
 import Link from 'next/link';
 
-// Mock monthly revenue data
-const revenueData = [
-    { month: 'ก.ค.', revenue: 28500, count: 8 },
-    { month: 'ส.ค.', revenue: 31200, count: 9 },
-    { month: 'ก.ย.', revenue: 29800, count: 8 },
-    { month: 'ต.ค.', revenue: 32500, count: 10 },
-    { month: 'พ.ย.', revenue: 30000, count: 9 },
-    { month: 'ธ.ค.', revenue: 33000, count: 10 },
-];
+// Helper to calculate monthly revenue from payments
+function calculateMonthlyRevenue(payments: Payment[]): { month: string; revenue: number; count: number }[] {
+    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const now = new Date();
+    const last6Months: { month: string; revenue: number; count: number }[] = [];
+
+    // Get data for last 6 months
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthIndex = date.getMonth();
+        const year = date.getFullYear();
+
+        // Filter payments for this month (only confirmed/verified ones)
+        const monthPayments = payments.filter(p => {
+            const pDate = new Date(p.createdAt);
+            return pDate.getMonth() === monthIndex &&
+                pDate.getFullYear() === year &&
+                p.slipVerifyStatus === 'verified';
+        });
+
+        const revenue = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+        last6Months.push({
+            month: monthNames[monthIndex],
+            revenue,
+            count: monthPayments.length
+        });
+    }
+
+    return last6Months;
+}
 
 export default function AdminDashboard() {
     const [shops, setShops] = useState<Shop[]>([]);
@@ -159,37 +180,48 @@ export default function AdminDashboard() {
                 <div className="card p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-lg font-semibold">รายได้รายเดือน</h2>
-                        <span className="badge badge-success">+8.3% จากเดือนก่อน</span>
+                        {calculateMonthlyRevenue(payments).some(d => d.revenue > 0) && (
+                            <span className="badge badge-info">6 เดือนล่าสุด</span>
+                        )}
                     </div>
                     <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={revenueData}>
-                                <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                                <YAxis stroke="#6b7280" fontSize={12} tickFormatter={(v) => `${(v / 1000)}k`} />
-                                <Tooltip
-                                    formatter={(value) => [formatCurrency(Number(value) || 0), 'รายได้']}
-                                    contentStyle={{
-                                        borderRadius: '12px',
-                                        border: '1px solid #e5e7eb',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                                    }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="revenue"
-                                    stroke="#3b82f6"
-                                    strokeWidth={2}
-                                    fill="url(#colorRevenue)"
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        {calculateMonthlyRevenue(payments).some(d => d.revenue > 0) ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={calculateMonthlyRevenue(payments)}>
+                                    <defs>
+                                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
+                                    <YAxis stroke="#6b7280" fontSize={12} tickFormatter={(v) => `${(v / 1000)}k`} />
+                                    <Tooltip
+                                        formatter={(value) => [formatCurrency(Number(value) || 0), 'รายได้']}
+                                        contentStyle={{
+                                            borderRadius: '12px',
+                                            border: '1px solid #e5e7eb',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                        }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#3b82f6"
+                                        strokeWidth={2}
+                                        fill="url(#colorRevenue)"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                                <div className="text-center">
+                                    <DollarSign size={48} className="mx-auto mb-2 opacity-50" />
+                                    <p>ยังไม่มีข้อมูลรายได้</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -199,22 +231,31 @@ export default function AdminDashboard() {
                         <h2 className="text-lg font-semibold">จำนวนการชำระเงิน</h2>
                     </div>
                     <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={revenueData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                                <YAxis stroke="#6b7280" fontSize={12} />
-                                <Tooltip
-                                    formatter={(value) => [Number(value) || 0, 'รายการ']}
-                                    contentStyle={{
-                                        borderRadius: '12px',
-                                        border: '1px solid #e5e7eb',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                                    }}
-                                />
-                                <Bar dataKey="count" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {calculateMonthlyRevenue(payments).some(d => d.count > 0) ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={calculateMonthlyRevenue(payments)}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
+                                    <YAxis stroke="#6b7280" fontSize={12} />
+                                    <Tooltip
+                                        formatter={(value) => [Number(value) || 0, 'รายการ']}
+                                        contentStyle={{
+                                            borderRadius: '12px',
+                                            border: '1px solid #e5e7eb',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                        }}
+                                    />
+                                    <Bar dataKey="count" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                                <div className="text-center">
+                                    <TrendingUp size={48} className="mx-auto mb-2 opacity-50" />
+                                    <p>ยังไม่มีข้อมูลการชำระเงิน</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
