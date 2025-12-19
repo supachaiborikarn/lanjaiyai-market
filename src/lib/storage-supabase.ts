@@ -135,6 +135,74 @@ export async function getUsers(): Promise<User[]> {
     return (data || []).map(dbUserToUser);
 }
 
+export async function getUserById(id: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error || !data) return undefined;
+    return dbUserToUser(data);
+}
+
+export async function addUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
+    const dbData = {
+        username: user.username,
+        password: user.password,
+        role: user.role,
+        shop_id: user.shopId || null,
+        name: user.name
+    };
+
+    const { data, error } = await supabase
+        .from('users')
+        .insert(dbData)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error adding user:', error);
+        throw error;
+    }
+    return dbUserToUser(data);
+}
+
+export async function updateUser(id: string, updates: Partial<User>): Promise<User | null> {
+    const dbData: Record<string, unknown> = {};
+    if (updates.username !== undefined) dbData.username = updates.username;
+    if (updates.password !== undefined) dbData.password = updates.password;
+    if (updates.role !== undefined) dbData.role = updates.role;
+    if (updates.shopId !== undefined) dbData.shop_id = updates.shopId || null;
+    if (updates.name !== undefined) dbData.name = updates.name;
+
+    const { data, error } = await supabase
+        .from('users')
+        .update(dbData)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating user:', error);
+        return null;
+    }
+    return dbUserToUser(data);
+}
+
+export async function deleteUser(id: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting user:', error);
+        return false;
+    }
+    return true;
+}
+
 export function getCurrentUser(): User | null {
     if (typeof window === 'undefined') return null;
     const stored = localStorage.getItem('lanjai_current_user');
