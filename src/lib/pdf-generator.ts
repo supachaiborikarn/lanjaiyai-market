@@ -10,7 +10,7 @@ export interface ContractPDFData {
 export function generateContractPDF(data: ContractPDFData): void {
     const { contract, shop, landlordName = 'ตลาดลานใจใหญ่' } = data;
 
-    // Create HTML content for printing
+    // Create HTML content for printing - optimized for exact 1 A4 page
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="th">
@@ -26,142 +26,136 @@ export function generateContractPDF(data: ContractPDFData): void {
         }
         @page {
             size: A4;
-            margin: 15mm;
-        }
-        html, body {
-            height: 100%;
+            margin: 10mm;
         }
         body {
             font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif;
-            font-size: 14px;
-            line-height: 1.5;
+            font-size: 11px;
+            line-height: 1.3;
             color: #333;
             background: white;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
+            padding: 8px;
+            max-height: 277mm;
+            overflow: hidden;
         }
         .header {
             text-align: center;
-            margin-bottom: 25px;
-            border-bottom: 3px solid #1a56db;
-            padding-bottom: 15px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #1a56db;
+            padding-bottom: 8px;
         }
         .header h1 {
-            font-size: 26px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 5px;
             color: #1a56db;
         }
         .header h2 {
-            font-size: 16px;
+            font-size: 12px;
             color: #666;
         }
         .contract-number {
             text-align: center;
-            font-size: 16px;
-            margin-bottom: 20px;
+            font-size: 12px;
+            margin-bottom: 10px;
             color: #555;
-            font-weight: 500;
         }
         .section {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         .section-title {
-            font-size: 16px;
+            font-size: 12px;
             font-weight: bold;
             color: #1a56db;
-            margin-bottom: 12px;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 6px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #e5e7eb;
         }
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
         }
         .info-item {
-            padding: 12px 15px;
+            padding: 6px 8px;
             background: #f3f4f6;
-            border-radius: 8px;
-            border-left: 4px solid #1a56db;
+            border-radius: 4px;
+            border-left: 3px solid #1a56db;
         }
         .info-label {
-            font-size: 12px;
+            font-size: 9px;
             color: #666;
-            margin-bottom: 4px;
             text-transform: uppercase;
         }
         .info-value {
             font-weight: 600;
-            font-size: 16px;
-            color: #111;
+            font-size: 11px;
         }
         .full-width {
             grid-column: 1 / -1;
         }
-        .terms-section {
-            flex: 1;
-            margin-bottom: 20px;
+        .col-span-2 {
+            grid-column: span 2;
         }
         .terms-list {
-            padding-left: 25px;
-            font-size: 14px;
+            padding-left: 18px;
+            font-size: 10px;
         }
         .terms-list li {
-            margin-bottom: 10px;
-            line-height: 1.6;
+            margin-bottom: 3px;
         }
         .signatures {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            margin-top: auto;
-            padding-top: 30px;
+            gap: 30px;
+            margin-top: 15px;
+            padding-top: 10px;
         }
         .signature-box {
             text-align: center;
         }
+        .signature-image {
+            height: 45px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+        .signature-image img {
+            max-height: 40px;
+            max-width: 120px;
+        }
         .signature-line {
-            border-bottom: 2px dashed #333;
-            height: 50px;
-            margin-bottom: 10px;
+            border-bottom: 1px dashed #333;
+            height: 45px;
+            margin-bottom: 5px;
         }
         .signature-name {
             font-weight: 600;
-            font-size: 14px;
+            font-size: 10px;
         }
         .signature-label {
-            font-size: 12px;
+            font-size: 9px;
             color: #666;
-            margin-top: 5px;
         }
         .date-line {
             text-align: center;
-            margin-top: 25px;
-            font-size: 14px;
-            font-weight: 500;
+            margin-top: 10px;
+            font-size: 10px;
         }
         .footer {
             text-align: center;
-            margin-top: 20px;
-            padding-top: 15px;
+            margin-top: 8px;
+            padding-top: 6px;
             border-top: 1px solid #e5e7eb;
-            font-size: 11px;
+            font-size: 8px;
             color: #888;
         }
         @media print {
             body { 
                 padding: 0;
-                min-height: auto;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
-            .no-print { display: none; }
         }
     </style>
 </head>
@@ -178,15 +172,15 @@ export function generateContractPDF(data: ContractPDFData): void {
     <div class="section">
         <div class="section-title">📋 คู่สัญญา</div>
         <div class="info-grid">
-            <div class="info-item">
+            <div class="info-item col-span-2">
                 <div class="info-label">ผู้ให้เช่า</div>
                 <div class="info-value">${landlordName}</div>
             </div>
-            <div class="info-item">
+            <div class="info-item col-span-2">
                 <div class="info-label">ผู้เช่า</div>
                 <div class="info-value">${shop.ownerName}</div>
             </div>
-            <div class="info-item">
+            <div class="info-item col-span-2">
                 <div class="info-label">ชื่อร้าน</div>
                 <div class="info-value">${shop.name}</div>
             </div>
@@ -194,8 +188,8 @@ export function generateContractPDF(data: ContractPDFData): void {
                 <div class="info-label">หมายเลขแผง</div>
                 <div class="info-value">${shop.stallNumber}</div>
             </div>
-            <div class="info-item full-width">
-                <div class="info-label">เบอร์โทรศัพท์</div>
+            <div class="info-item">
+                <div class="info-label">เบอร์โทร</div>
                 <div class="info-value">${shop.phone}</div>
             </div>
         </div>
@@ -209,11 +203,11 @@ export function generateContractPDF(data: ContractPDFData): void {
                 <div class="info-value">${formatDate(contract.startDate)}</div>
             </div>
             <div class="info-item">
-                <div class="info-label">วันสิ้นสุดสัญญา</div>
+                <div class="info-label">วันสิ้นสุด</div>
                 <div class="info-value">${formatDate(contract.endDate)}</div>
             </div>
             <div class="info-item">
-                <div class="info-label">ค่าเช่ารายเดือน</div>
+                <div class="info-label">ค่าเช่า/เดือน</div>
                 <div class="info-value" style="color: #1a56db;">${formatCurrency(contract.monthlyRent)}</div>
             </div>
             <div class="info-item">
@@ -232,7 +226,7 @@ export function generateContractPDF(data: ContractPDFData): void {
     </div>
     ` : ''}
     
-    <div class="section terms-section">
+    <div class="section">
         <div class="section-title">📜 เงื่อนไขทั่วไป</div>
         <ol class="terms-list">
             <li>ผู้เช่าตกลงชำระค่าเช่าภายในวันที่ 15 ของทุกเดือน หากชำระล่าช้าจะมีค่าปรับ</li>
@@ -246,24 +240,35 @@ export function generateContractPDF(data: ContractPDFData): void {
     
     <div class="signatures">
         <div class="signature-box">
-            <div class="signature-line"></div>
+            ${contract.landlordSignatureUrl ? `
+                <div class="signature-image">
+                    <img src="${contract.landlordSignatureUrl}" alt="ลายเซ็นผู้ให้เช่า" />
+                </div>
+            ` : `
+                <div class="signature-line"></div>
+            `}
             <div class="signature-name">(${landlordName})</div>
             <div class="signature-label">ผู้ให้เช่า</div>
         </div>
         <div class="signature-box">
-            <div class="signature-line"></div>
+            ${contract.tenantSignatureUrl ? `
+                <div class="signature-image">
+                    <img src="${contract.tenantSignatureUrl}" alt="ลายเซ็นผู้เช่า" />
+                </div>
+            ` : `
+                <div class="signature-line"></div>
+            `}
             <div class="signature-name">(${shop.ownerName})</div>
             <div class="signature-label">ผู้เช่า</div>
         </div>
     </div>
     
     <div class="date-line">
-        <strong>วันที่ลงนาม:</strong> _______________________________
+        <strong>วันที่ลงนาม:</strong> ${contract.signedAt ? formatDate(contract.signedAt) : '_______________________________'}
     </div>
     
     <div class="footer">
-        <p>เอกสารนี้สร้างโดยระบบบริหารจัดการตลาดลานใจใหญ่</p>
-        <p>Lanjaiyai Market Management System</p>
+        <p>เอกสารนี้สร้างโดยระบบบริหารจัดการตลาดลานใจใหญ่ | Lanjaiyai Market Management System</p>
     </div>
     
     <script>
