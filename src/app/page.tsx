@@ -119,23 +119,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Test Accounts */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-sm text-gray-500 text-center mb-3">บัญชีทดสอบ</p>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium text-gray-700">Admin</p>
-                <p className="text-gray-500 mt-1">Username: admin</p>
-                <p className="text-gray-500">Password: admin123</p>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium text-gray-700">ร้านค้า</p>
-                <p className="text-gray-500 mt-1">Username: shop1</p>
-                <p className="text-gray-500">Password: shop123</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
