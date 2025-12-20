@@ -32,7 +32,7 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
                     <h2 className="modal-title">{title}</h2>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="btn btn-ghost p-2"
                     >
                         <X size={20} className="text-gray-500" />
                     </button>

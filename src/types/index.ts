@@ -93,9 +93,8 @@ export interface SlipAnalysisResult {
   suggestions: string[];
 }
 
-// Constants
-export const ELECTRICITY_RATE = 5; // 5 บาท/หน่วย
-export const WATER_FLAT_RATE = 150; // 150 บาท/เดือน
+// Re-export constants from centralized file
+export { ELECTRICITY_RATE, WATER_FLAT_RATE } from '@/lib/constants';
 
 export const SHOP_CATEGORIES = [
   'อาหาร',

@@ -7,8 +7,7 @@ import {
     AlertCircle,
     FileImage,
     TrendingUp,
-    Calendar,
-    Loader2
+    Calendar
 } from 'lucide-react';
 import {
     AreaChart,
@@ -23,12 +22,13 @@ import {
 } from 'recharts';
 import { getShops, getMeterReadings, getPayments, getStatistics } from '@/lib/storage-supabase';
 import { formatCurrency, isContractExpiringSoon, getDaysUntilExpiry } from '@/lib/utils';
+import { CONTRACT_EXPIRY_WARNING_DAYS, THAI_MONTH_NAMES, MAX_PENDING_ITEMS_DISPLAY } from '@/lib/constants';
 import { Shop, MeterReading, Payment } from '@/types';
+import { PageLoading } from '@/components/ui/LoadingSpinner';
 import Link from 'next/link';
 
 // Helper to calculate monthly revenue from payments
 function calculateMonthlyRevenue(payments: Payment[]): { month: string; revenue: number; count: number }[] {
-    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     const now = new Date();
     const last6Months: { month: string; revenue: number; count: number }[] = [];
 
@@ -48,7 +48,7 @@ function calculateMonthlyRevenue(payments: Payment[]): { month: string; revenue:
 
         const revenue = monthPayments.reduce((sum, p) => sum + p.amount, 0);
         last6Months.push({
-            month: monthNames[monthIndex],
+            month: THAI_MONTH_NAMES[monthIndex],
             revenue,
             count: monthPayments.length
         });
@@ -90,18 +90,11 @@ export default function AdminDashboard() {
         loadData();
     }, []);
 
-    const expiringContracts = shops.filter(s => isContractExpiringSoon(s.contractEnd, 60));
+    const expiringContracts = shops.filter(s => isContractExpiringSoon(s.contractEnd, CONTRACT_EXPIRY_WARNING_DAYS));
     const pendingPayments = payments.filter(p => p.slipVerifyStatus === 'pending');
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="text-center">
-                    <Loader2 size={48} className="mx-auto text-blue-500 animate-spin mb-4" />
-                    <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
-                </div>
-            </div>
-        );
+        return <PageLoading />;
     }
 
     return (
@@ -272,7 +265,7 @@ export default function AdminDashboard() {
                     </div>
                     {pendingPayments.length > 0 ? (
                         <div className="space-y-3">
-                            {pendingPayments.slice(0, 5).map(payment => {
+                            {pendingPayments.slice(0, MAX_PENDING_ITEMS_DISPLAY).map(payment => {
                                 const shop = shops.find(s => s.id === payment.shopId);
                                 return (
                                     <div key={payment.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
@@ -311,7 +304,7 @@ export default function AdminDashboard() {
                     </div>
                     {expiringContracts.length > 0 ? (
                         <div className="space-y-3">
-                            {expiringContracts.slice(0, 5).map(shop => {
+                            {expiringContracts.slice(0, MAX_PENDING_ITEMS_DISPLAY).map(shop => {
                                 const daysLeft = getDaysUntilExpiry(shop.contractEnd);
                                 return (
                                     <div key={shop.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">

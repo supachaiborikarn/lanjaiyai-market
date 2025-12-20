@@ -15,7 +15,7 @@ import {
     Users
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getCurrentUser, logout } from '@/lib/storage';
+import { getCurrentUser, logout } from '@/lib/storage-supabase';
 import { useRouter } from 'next/navigation';
 
 interface MenuItem {

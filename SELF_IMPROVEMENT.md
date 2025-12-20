@@ -1,0 +1,180 @@
+# 🤖 Self Improvement Report
+
+## Project: ลานใจใหญ่ Market Management System
+
+---
+
+## ⏰ Session Info
+
+| Item | Value |
+|------|-------|
+| **เวลาเริ่ม** | 2025-12-20 13:52:52 |
+| **เวลาจบ** | 2025-12-20 14:37:48 |
+| **จำนวนรอบ** | 3 iterations |
+
+---
+
+## 📁 Files Changed
+
+### ➕ New Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/lib/constants.ts` | Centralized constants (magic numbers, routes, storage keys) |
+| `src/lib/errors.ts` | Error handling utilities with Thai messages |
+| `src/components/ui/LoadingSpinner.tsx` | Reusable loading components (PageLoading, InlineLoading) |
+| `src/components/ui/index.ts` | UI components barrel export |
+| `src/hooks/useShops.ts` | Custom hook for shop CRUD with error handling |
+| `src/hooks/useAuth.ts` | Custom hook for authentication |
+| `src/hooks/index.ts` | Hooks barrel export |
+
+### ✏️ Modified Files
+
+| File | Changes |
+|------|---------|
+| `src/components/layout/Sidebar.tsx` | Changed import from `storage.ts` → `storage-supabase.ts` |
+| `src/components/ui/Modal.tsx` | Fixed close button to use `btn btn-ghost` class |
+| `src/types/index.ts` | Re-export constants from `constants.ts` instead of duplicating |
+| `src/app/admin/dashboard/page.tsx` | Use constants, PageLoading component |
+
+### 🗑️ Deleted Files
+
+| File | Reason |
+|------|--------|
+| `src/lib/storage.ts` | Duplicate of `storage-supabase.ts`, no longer used |
+
+---
+
+## 🔍 Main Issues Before Improvement
+
+1. **Duplicate Storage Files** - `storage.ts` และ `storage-supabase.ts` ทำงานซ้ำซ้อน
+2. **Magic Numbers** - ตัวเลข/string กระจายทั่ว codebase (e.g., `60` days, month names)
+3. **No Error Handling Utilities** - ใช้ `try/catch` + `showToast` ซ้ำในทุกที่
+4. **No Reusable Hooks** - State management ซ้ำในทุก page
+5. **No Loading Component** - Inline loading code ซ้ำกัน
+6. **Inconsistent Button Styling** - Modal close button ไม่ใช้ btn class
+
+---
+
+## ✅ What Was Fixed
+
+### Round 1
+- ✅ Created `constants.ts` - รวม magic numbers/strings
+- ✅ Created `errors.ts` - Centralized error handling
+- ✅ Fixed Modal close button styling
+- ✅ Updated Sidebar import
+- ✅ Updated Dashboard to use constants
+
+### Round 2
+- ✅ Deleted `storage.ts` (unused duplicate)
+- ✅ Created `LoadingSpinner.tsx` component
+- ✅ Removed duplicate constants from `types/index.ts`
+- ✅ Created `useShops` hook with error handling
+
+### Round 3
+- ✅ Created `useAuth` hook
+- ✅ Created component/hooks index files
+- ✅ Updated Dashboard to use `PageLoading`
+- ✅ Created this summary document
+
+---
+
+## 📋 What's Still Pending (Future Improvements)
+
+| Priority | Item | Reason |
+|----------|------|--------|
+| Medium | Create `useInvoices` hook | Large page file, repeated logic |
+| Medium | Split `invoices/page.tsx` | 1,100+ lines, hard to maintain |
+| Medium | Add React Query/SWR | Better caching & refetching |
+| Low | Add unit tests | Ensure code quality |
+| Low | Add Storybook | UI component documentation |
+| Low | Create usePayments hook | Consistent with other hooks |
+
+---
+
+## 📊 Code Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Files in `/lib` | 5 | 6 (+2 new, -1 deleted) |
+| Custom Hooks | 0 | 2 |
+| Reusable Components | 4 | 5 |
+| Duplicate Code | High | Medium |
+| Magic Numbers | Many | Centralized |
+
+---
+
+## 🏗️ New Architecture
+
+```
+src/
+├── app/                    # Pages (unchanged)
+├── components/
+│   ├── layout/            # Sidebar
+│   └── ui/                # Modal, Toast, LoadingSpinner, etc.
+│       └── index.ts       # ⭐ NEW: Barrel exports
+├── hooks/                  # ⭐ NEW: Custom hooks
+│   ├── index.ts
+│   ├── useAuth.ts
+│   └── useShops.ts
+├── lib/
+│   ├── constants.ts       # ⭐ NEW: All constants
+│   ├── errors.ts          # ⭐ NEW: Error utilities
+│   ├── storage-supabase.ts
+│   ├── supabase.ts
+│   ├── slip-verify.ts
+│   └── utils.ts
+└── types/
+    └── index.ts           # Re-exports from constants
+```
+
+---
+
+## 🚀 Usage Examples
+
+### Using Constants
+```typescript
+import { CONTRACT_EXPIRY_WARNING_DAYS, THAI_MONTH_NAMES } from '@/lib/constants';
+
+// Instead of magic number 60
+const expiring = isContractExpiringSoon(date, CONTRACT_EXPIRY_WARNING_DAYS);
+```
+
+### Using Error Handling
+```typescript
+import { handleError, showSuccess, SUCCESS_MESSAGES } from '@/lib/errors';
+
+try {
+    await saveData();
+    showSuccess(SUCCESS_MESSAGES.SAVE_SUCCESS);
+} catch (error) {
+    handleError(error);
+}
+```
+
+### Using Hooks
+```typescript
+import { useShops, useAuth } from '@/hooks';
+
+function MyComponent() {
+    const { shops, loading, addShop, deleteShop } = useShops();
+    const { user, isAdmin, logout } = useAuth();
+    
+    // ... 
+}
+```
+
+### Using LoadingSpinner
+```typescript
+import { PageLoading, InlineLoading } from '@/components/ui';
+
+if (loading) return <PageLoading />;
+
+<button disabled={saving}>
+    {saving ? <InlineLoading /> : 'Save'}
+</button>
+```
+
+---
+
+*Generated by Multi-Agent Self Improvement System*
