@@ -94,3 +94,17 @@ export interface DbInvoice {
     created_at: string;
     updated_at: string;
 }
+
+export interface DbInvoicePayment {
+    id: string;
+    invoice_id: string;
+    shop_id: string;
+    amount: number;
+    slip_image_url: string | null;
+    payment_date: string;
+    status: string;
+    verified_by: string | null;
+    verified_at: string | null;
+    verify_note: string | null;
+    created_at: string;
+}

@@ -129,8 +129,9 @@ export const SLIP_STATUS_LABELS: Record<SlipVerifyStatus, string> = {
 };
 
 // ==================== Invoice Types ====================
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+export type InvoiceStatus = 'draft' | 'sent' | 'pending_verification' | 'paid' | 'payment_rejected' | 'overdue' | 'cancelled';
 export type InvoiceItemType = 'rent' | 'electricity' | 'water' | 'other';
+export type InvoicePaymentStatus = 'pending' | 'verified' | 'rejected';
 
 export interface InvoiceItem {
   type: InvoiceItemType;
@@ -156,10 +157,26 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export interface InvoicePayment {
+  id: string;
+  invoiceId: string;
+  shopId: string;
+  amount: number;
+  slipImageUrl?: string;
+  paymentDate: string;
+  status: InvoicePaymentStatus;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  verifyNote?: string;
+  createdAt: string;
+}
+
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   draft: 'ฉบับร่าง',
   sent: 'ส่งแล้ว',
+  pending_verification: 'รอตรวจสอบสลิป',
   paid: 'ชำระแล้ว',
+  payment_rejected: 'สลิปถูกปฏิเสธ',
   overdue: 'เกินกำหนด',
   cancelled: 'ยกเลิก'
 };
@@ -169,4 +186,10 @@ export const INVOICE_ITEM_TYPE_LABELS: Record<InvoiceItemType, string> = {
   electricity: 'ค่าไฟฟ้า',
   water: 'ค่าน้ำ',
   other: 'อื่นๆ'
+};
+
+export const INVOICE_PAYMENT_STATUS_LABELS: Record<InvoicePaymentStatus, string> = {
+  pending: 'รอตรวจสอบ',
+  verified: 'อนุมัติ',
+  rejected: 'ปฏิเสธ'
 };

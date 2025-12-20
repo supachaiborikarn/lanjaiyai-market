@@ -99,6 +99,21 @@ CREATE TABLE IF NOT EXISTS invoices (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Invoice Payments table (for slip-based payment verification)
+CREATE TABLE IF NOT EXISTS invoice_payments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  shop_id UUID REFERENCES shops(id) ON DELETE CASCADE,
+  amount DECIMAL(10,2) NOT NULL,
+  slip_image_url TEXT,
+  payment_date TIMESTAMPTZ DEFAULT NOW(),
+  status TEXT DEFAULT 'pending', -- pending, verified, rejected
+  verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  verified_at TIMESTAMPTZ,
+  verify_note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (but allow all for now)
 ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -106,6 +121,7 @@ ALTER TABLE meter_readings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rent_slips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoice_payments ENABLE ROW LEVEL SECURITY;
 
 -- Create policies to allow all operations (for development)
 CREATE POLICY "Allow all for shops" ON shops FOR ALL USING (true) WITH CHECK (true);
@@ -114,6 +130,7 @@ CREATE POLICY "Allow all for meter_readings" ON meter_readings FOR ALL USING (tr
 CREATE POLICY "Allow all for payments" ON payments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for rent_slips" ON rent_slips FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for invoices" ON invoices FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for invoice_payments" ON invoice_payments FOR ALL USING (true) WITH CHECK (true);
 
 -- Insert default admin user
 INSERT INTO users (username, password, role, name)

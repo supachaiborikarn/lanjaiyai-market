@@ -1,5 +1,5 @@
-import { supabase, DbShop, DbUser, DbMeterReading, DbPayment, DbRentSlip, DbInvoice } from './supabase';
-import { User, Shop, MeterReading, Payment, Invoice, InvoiceItem, RentSlip, ELECTRICITY_RATE, WATER_FLAT_RATE } from '@/types';
+import { supabase, DbShop, DbUser, DbMeterReading, DbPayment, DbRentSlip, DbInvoice, DbInvoicePayment } from './supabase';
+import { User, Shop, MeterReading, Payment, Invoice, InvoiceItem, InvoicePayment, RentSlip, ELECTRICITY_RATE, WATER_FLAT_RATE } from '@/types';
 
 // ==================== Helper Functions ====================
 function dbShopToShop(db: DbShop): Shop {
@@ -120,6 +120,22 @@ function dbInvoiceToInvoice(db: DbInvoice): Invoice {
         notes: db.notes || undefined,
         createdAt: db.created_at,
         updatedAt: db.updated_at
+    };
+}
+
+function dbInvoicePaymentToInvoicePayment(db: DbInvoicePayment): InvoicePayment {
+    return {
+        id: db.id,
+        invoiceId: db.invoice_id,
+        shopId: db.shop_id,
+        amount: db.amount,
+        slipImageUrl: db.slip_image_url || undefined,
+        paymentDate: db.payment_date,
+        status: db.status as InvoicePayment['status'],
+        verifiedBy: db.verified_by || undefined,
+        verifiedAt: db.verified_at || undefined,
+        verifyNote: db.verify_note || undefined,
+        createdAt: db.created_at
     };
 }
 
@@ -751,3 +767,137 @@ export async function sendAllDraftInvoices(month: string): Promise<number> {
     }
     return count;
 }
+
+// ==================== Invoice Payments ====================
+export async function addInvoicePayment(payment: Omit<InvoicePayment, 'id' | 'createdAt'>): Promise<InvoicePayment> {
+    const dbData = {
+        invoice_id: payment.invoiceId,
+        shop_id: payment.shopId,
+        amount: payment.amount,
+        slip_image_url: payment.slipImageUrl || null,
+        payment_date: payment.paymentDate,
+        status: payment.status
+    };
+
+    const { data, error } = await supabase
+        .from('invoice_payments')
+        .insert(dbData)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error adding invoice payment:', error);
+        throw error;
+    }
+
+    // Update invoice status to pending_verification
+    await updateInvoice(payment.invoiceId, {
+        status: 'pending_verification'
+    });
+
+    return dbInvoicePaymentToInvoicePayment(data);
+}
+
+export async function getInvoicePaymentsByInvoice(invoiceId: string): Promise<InvoicePayment[]> {
+    const { data, error } = await supabase
+        .from('invoice_payments')
+        .select('*')
+        .eq('invoice_id', invoiceId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching invoice payments:', error);
+        return [];
+    }
+    return (data || []).map(dbInvoicePaymentToInvoicePayment);
+}
+
+export async function getInvoicePaymentsByShop(shopId: string): Promise<InvoicePayment[]> {
+    const { data, error } = await supabase
+        .from('invoice_payments')
+        .select('*')
+        .eq('shop_id', shopId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching invoice payments:', error);
+        return [];
+    }
+    return (data || []).map(dbInvoicePaymentToInvoicePayment);
+}
+
+export async function getPendingInvoicePayments(): Promise<InvoicePayment[]> {
+    const { data, error } = await supabase
+        .from('invoice_payments')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching pending invoice payments:', error);
+        return [];
+    }
+    return (data || []).map(dbInvoicePaymentToInvoicePayment);
+}
+
+export async function verifyInvoicePayment(
+    id: string,
+    status: 'verified' | 'rejected',
+    verifiedBy: string,
+    verifyNote?: string
+): Promise<InvoicePayment | null> {
+    const dbData = {
+        status,
+        verified_by: verifiedBy,
+        verified_at: new Date().toISOString(),
+        verify_note: verifyNote || null
+    };
+
+    const { data, error } = await supabase
+        .from('invoice_payments')
+        .update(dbData)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error verifying invoice payment:', error);
+        return null;
+    }
+
+    const payment = dbInvoicePaymentToInvoicePayment(data);
+
+    // Update invoice status based on verification result
+    if (status === 'verified') {
+        const invoice = await getInvoiceById(payment.invoiceId);
+        if (invoice) {
+            await updateInvoice(payment.invoiceId, {
+                status: 'paid',
+                paidAt: new Date().toISOString(),
+                paidAmount: invoice.totalAmount
+            });
+        }
+    } else {
+        await updateInvoice(payment.invoiceId, {
+            status: 'payment_rejected'
+        });
+    }
+
+    return payment;
+}
+
+// Get invoices that are waiting for verification (admin view)
+export async function getInvoicesPendingVerification(): Promise<Invoice[]> {
+    const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('status', 'pending_verification')
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching invoices pending verification:', error);
+        return [];
+    }
+    return (data || []).map(dbInvoiceToInvoice);
+}
+
