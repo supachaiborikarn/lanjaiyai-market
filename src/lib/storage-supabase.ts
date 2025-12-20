@@ -627,6 +627,10 @@ export async function updateInvoice(id: string, updates: Partial<Invoice>): Prom
     if (updates.paidAmount !== undefined) dbData.paid_amount = updates.paidAmount;
     if (updates.sentAt) dbData.sent_at = updates.sentAt;
     if (updates.paidAt) dbData.paid_at = updates.paidAt;
+    if (updates.items) dbData.items = updates.items;
+    if (updates.totalAmount !== undefined) dbData.total_amount = updates.totalAmount;
+    if (updates.dueDate) dbData.due_date = updates.dueDate;
+    if (updates.notes !== undefined) dbData.notes = updates.notes;
 
     const { data, error } = await supabase
         .from('invoices')

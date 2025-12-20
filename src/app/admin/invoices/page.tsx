@@ -17,7 +17,8 @@ import {
     Loader2,
     XCircle,
     Image,
-    Upload
+    Upload,
+    Edit
 } from 'lucide-react';
 import {
     getShops,
@@ -31,10 +32,11 @@ import {
     verifyInvoicePayment,
     getCurrentUser,
     markInvoiceAsPaid,
-    addInvoicePayment
+    addInvoicePayment,
+    updateInvoice
 } from '@/lib/storage-supabase';
-import { formatCurrency, formatDate, getMonthName, getCurrentMonth } from '@/lib/utils';
-import { Shop, Invoice, InvoicePayment, INVOICE_STATUS_LABELS, INVOICE_ITEM_TYPE_LABELS, SlipAnalysisResult } from '@/types';
+import { formatCurrency, formatDate, formatDateInput, getMonthName, getCurrentMonth } from '@/lib/utils';
+import { Shop, Invoice, InvoiceItem, InvoicePayment, INVOICE_STATUS_LABELS, INVOICE_ITEM_TYPE_LABELS, SlipAnalysisResult } from '@/types';
 import { Modal } from '@/components/ui/Modal';
 import { showToast } from '@/components/ui/Toast';
 import { SlipUploader } from '@/components/ui/SlipUploader';
@@ -58,6 +60,12 @@ export default function InvoicesPage() {
     const [manualClearNote, setManualClearNote] = useState('');
     const [isUploadSlipModalOpen, setIsUploadSlipModalOpen] = useState(false);
     const [uploadSlipUrl, setUploadSlipUrl] = useState('');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState<{
+        items: InvoiceItem[];
+        dueDate: string;
+        notes: string;
+    }>({ items: [], dueDate: '', notes: '' });
 
     useEffect(() => {
         loadData();
@@ -232,6 +240,59 @@ export default function InvoicesPage() {
 
     const handleSlipAnalyzed = (imageUrl: string, result: SlipAnalysisResult) => {
         setUploadSlipUrl(imageUrl);
+    };
+
+    const openEditModal = (invoice: Invoice) => {
+        setEditFormData({
+            items: [...invoice.items],
+            dueDate: formatDateInput(invoice.dueDate),
+            notes: invoice.notes || ''
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditInvoice = async () => {
+        if (!selectedInvoice) return;
+
+        setIsSubmitting(true);
+        try {
+            const totalAmount = editFormData.items.reduce((sum, item) => sum + item.amount, 0);
+
+            await updateInvoice(selectedInvoice.id, {
+                items: editFormData.items,
+                totalAmount,
+                dueDate: editFormData.dueDate,
+                notes: editFormData.notes
+            });
+
+            showToast('แก้ไขใบวางบิลสำเร็จ', 'success');
+            setIsEditModalOpen(false);
+            setIsDetailModalOpen(false);
+            await loadData();
+        } catch (error) {
+            console.error('Error updating invoice:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const updateEditItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
+        const newItems = [...editFormData.items];
+        newItems[index] = { ...newItems[index], [field]: value };
+        setEditFormData({ ...editFormData, items: newItems });
+    };
+
+    const addEditItem = () => {
+        setEditFormData({
+            ...editFormData,
+            items: [...editFormData.items, { type: 'other', description: '', amount: 0 }]
+        });
+    };
+
+    const removeEditItem = (index: number) => {
+        const newItems = editFormData.items.filter((_, i) => i !== index);
+        setEditFormData({ ...editFormData, items: newItems });
     };
 
     const getStatusBadge = (status: string) => {
@@ -695,6 +756,16 @@ export default function InvoicesPage() {
                                         </button>
                                     </>
                                 )}
+                            {/* Edit Button - สำหรับแก้ไขใบวางบิล (ยกเว้นสถานะ paid) */}
+                            {selectedInvoice.status !== 'paid' && (
+                                <button
+                                    onClick={() => openEditModal(selectedInvoice)}
+                                    className="btn btn-warning w-full"
+                                >
+                                    <Edit size={18} />
+                                    แก้ไขใบวางบิล
+                                </button>
+                            )}
                             {/* Delete Button - สำหรับลบใบวางบิล (ยกเว้นสถานะ paid) */}
                             {selectedInvoice.status !== 'paid' && (
                                 <button
@@ -926,6 +997,144 @@ export default function InvoicesPage() {
                         </button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Edit Invoice Modal - แก้ไขใบวางบิล */}
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                title="แก้ไขใบวางบิล"
+                size="lg"
+            >
+                {selectedInvoice && (
+                    <div className="space-y-6">
+                        {/* Invoice Info */}
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-gray-500">เลขที่ใบบิล</p>
+                                    <p className="font-semibold">{selectedInvoice.invoiceNumber}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">ร้านค้า</p>
+                                    <p className="font-medium">{getShop(selectedInvoice.shopId)?.name}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Due Date */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                กำหนดชำระ
+                            </label>
+                            <input
+                                type="date"
+                                value={editFormData.dueDate}
+                                onChange={(e) => setEditFormData({ ...editFormData, dueDate: e.target.value })}
+                                className="input"
+                            />
+                        </div>
+
+                        {/* Items */}
+                        <div>
+                            <div className="flex justify-between items-center mb-3">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    รายการ
+                                </label>
+                                <button
+                                    onClick={addEditItem}
+                                    className="btn btn-sm btn-secondary"
+                                >
+                                    <Plus size={14} />
+                                    เพิ่มรายการ
+                                </button>
+                            </div>
+                            <div className="space-y-3">
+                                {editFormData.items.map((item, index) => (
+                                    <div key={index} className="flex gap-2 items-start p-3 bg-gray-50 rounded-lg">
+                                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                            <select
+                                                value={item.type}
+                                                onChange={(e) => updateEditItem(index, 'type', e.target.value)}
+                                                className="select text-sm"
+                                            >
+                                                <option value="rent">ค่าเช่า</option>
+                                                <option value="electricity">ค่าไฟฟ้า</option>
+                                                <option value="water">ค่าน้ำ</option>
+                                                <option value="other">อื่นๆ</option>
+                                            </select>
+                                            <input
+                                                type="text"
+                                                value={item.description}
+                                                onChange={(e) => updateEditItem(index, 'description', e.target.value)}
+                                                className="input text-sm"
+                                                placeholder="คำอธิบาย"
+                                            />
+                                            <input
+                                                type="number"
+                                                value={item.amount}
+                                                onChange={(e) => updateEditItem(index, 'amount', parseFloat(e.target.value) || 0)}
+                                                className="input text-sm text-right"
+                                                placeholder="จำนวนเงิน"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={() => removeEditItem(index)}
+                                            className="btn btn-ghost p-2 text-red-500 hover:bg-red-50"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Total */}
+                        <div className="flex justify-between p-4 bg-blue-50 rounded-xl">
+                            <span className="font-semibold text-lg">ยอดรวมทั้งสิ้น</span>
+                            <span className="font-bold text-xl text-blue-700">
+                                {formatCurrency(editFormData.items.reduce((sum, item) => sum + item.amount, 0))}
+                            </span>
+                        </div>
+
+                        {/* Notes */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                หมายเหตุ
+                            </label>
+                            <textarea
+                                value={editFormData.notes}
+                                onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                                className="input"
+                                rows={2}
+                                placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"
+                            />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="btn btn-secondary flex-1"
+                                disabled={isSubmitting}
+                            >
+                                ยกเลิก
+                            </button>
+                            <button
+                                onClick={handleEditInvoice}
+                                className="btn btn-primary flex-1"
+                                disabled={isSubmitting || editFormData.items.length === 0}
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                ) : (
+                                    <CheckCircle size={18} />
+                                )}
+                                บันทึกการแก้ไข
+                            </button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );
