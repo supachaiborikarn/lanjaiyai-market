@@ -108,3 +108,19 @@ export interface DbInvoicePayment {
     verify_note: string | null;
     created_at: string;
 }
+
+export interface DbContract {
+    id: string;
+    shop_id: string;
+    contract_number: string;
+    start_date: string;
+    end_date: string;
+    monthly_rent: number;
+    deposit_amount: number;
+    terms: string | null;
+    status: string;
+    landlord_signature_url: string | null;
+    tenant_signature_url: string | null;
+    signed_at: string | null;
+    created_at: string;
+}

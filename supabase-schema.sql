@@ -114,6 +114,23 @@ CREATE TABLE IF NOT EXISTS invoice_payments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Contracts table (สัญญาเช่าร้านค้า)
+CREATE TABLE contracts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id UUID REFERENCES shops(id) ON DELETE CASCADE,
+  contract_number TEXT NOT NULL UNIQUE,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  monthly_rent DECIMAL(10,2) NOT NULL,
+  deposit_amount DECIMAL(10,2) NOT NULL,
+  terms TEXT,
+  status TEXT DEFAULT 'draft', -- draft, pending_signature, signed, expired, cancelled
+  landlord_signature_url TEXT,
+  tenant_signature_url TEXT,
+  signed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (but allow all for now)
 ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -122,6 +139,7 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rent_slips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
 
 -- Create policies to allow all operations (for development)
 CREATE POLICY "Allow all for shops" ON shops FOR ALL USING (true) WITH CHECK (true);
@@ -131,6 +149,7 @@ CREATE POLICY "Allow all for payments" ON payments FOR ALL USING (true) WITH CHE
 CREATE POLICY "Allow all for rent_slips" ON rent_slips FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for invoices" ON invoices FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for invoice_payments" ON invoice_payments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for contracts" ON contracts FOR ALL USING (true) WITH CHECK (true);
 
 -- Insert default admin user
 INSERT INTO users (username, password, role, name)

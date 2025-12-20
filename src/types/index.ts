@@ -193,3 +193,30 @@ export const INVOICE_PAYMENT_STATUS_LABELS: Record<InvoicePaymentStatus, string>
   verified: 'อนุมัติ',
   rejected: 'ปฏิเสธ'
 };
+
+// ==================== Contract Types ====================
+export type ContractStatus = 'draft' | 'pending_signature' | 'signed' | 'expired' | 'cancelled';
+
+export interface Contract {
+  id: string;
+  shopId: string;
+  contractNumber: string;
+  startDate: string;
+  endDate: string;
+  monthlyRent: number;
+  depositAmount: number;
+  terms?: string;
+  status: ContractStatus;
+  landlordSignatureUrl?: string;
+  tenantSignatureUrl?: string;
+  signedAt?: string;
+  createdAt: string;
+}
+
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  draft: 'ฉบับร่าง',
+  pending_signature: 'รอลงนาม',
+  signed: 'ลงนามแล้ว',
+  expired: 'หมดอายุ',
+  cancelled: 'ยกเลิก'
+};

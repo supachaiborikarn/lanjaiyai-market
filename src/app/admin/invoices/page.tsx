@@ -238,26 +238,27 @@ export default function InvoicesPage() {
     return (
         <div className="animate-fadeIn">
             {/* Page Header */}
-            <div className="page-header flex-col sm:flex-row gap-4">
-                <div className="min-w-0">
+            <div className="page-header flex-col lg:flex-row gap-4">
+                <div className="min-w-0 flex-1">
                     <h1 className="page-title">ใบวางบิล</h1>
-                    <p className="text-gray-500 mt-1 text-sm">จัดการใบวางบิลและแจ้งหนี้ร้านค้า</p>
+                    <p className="text-gray-500 mt-1 text-sm hidden sm:block">จัดการใบวางบิลและแจ้งหนี้ร้านค้า</p>
                 </div>
-                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex gap-2 w-full lg:w-auto">
                     <button
                         onClick={handleSendAll}
-                        className="btn-secondary text-sm whitespace-nowrap"
+                        className="btn-secondary text-sm flex-1 lg:flex-none"
                         disabled={draftCount === 0}
                     >
-                        <Send size={16} />
-                        <span className="hidden sm:inline">ส่งทั้งหมด</span> ({draftCount})
+                        <Send size={18} />
+                        <span className="hidden md:inline">ส่งทั้งหมด</span> ({draftCount})
                     </button>
                     <button
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="btn-primary text-sm whitespace-nowrap"
+                        className="btn-primary text-sm flex-1 lg:flex-none"
                     >
-                        <Plus size={16} />
-                        <span className="hidden sm:inline">สร้างใบบิล</span><span className="sm:hidden">สร้าง</span>
+                        <Plus size={18} />
+                        <span className="hidden md:inline">สร้างใบบิลรายเดือน</span>
+                        <span className="md:hidden">สร้างบิล</span>
                     </button>
                 </div>
             </div>
