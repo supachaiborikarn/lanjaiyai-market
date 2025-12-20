@@ -81,11 +81,19 @@ export default function ReportsPage() {
         };
     });
 
-    // Calculate monthly income
+    // Calculate monthly income (from both payments and paid invoices)
     const getMonthlyIncome = (month: string) => {
-        return payments
+        // Income from old payments table (verified slips)
+        const paymentIncome = payments
             .filter(p => p.paymentDate.startsWith(month) && p.slipVerifyStatus === 'verified')
             .reduce((sum, p) => sum + p.amount, 0);
+
+        // Income from paid invoices (includes manual clearing and verified invoice payments)
+        const invoiceIncome = invoices
+            .filter(i => i.status === 'paid' && i.paidAt && i.paidAt.startsWith(month))
+            .reduce((sum, i) => sum + i.totalAmount, 0);
+
+        return paymentIncome + invoiceIncome;
     };
 
     // Calculate monthly utilities

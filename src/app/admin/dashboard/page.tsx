@@ -20,15 +20,15 @@ import {
     BarChart,
     Bar
 } from 'recharts';
-import { getShops, getMeterReadings, getPayments, getStatistics } from '@/lib/storage-supabase';
+import { getShops, getMeterReadings, getPayments, getStatistics, getInvoices } from '@/lib/storage-supabase';
 import { formatCurrency, isContractExpiringSoon, getDaysUntilExpiry } from '@/lib/utils';
 import { CONTRACT_EXPIRY_WARNING_DAYS, THAI_MONTH_NAMES, MAX_PENDING_ITEMS_DISPLAY } from '@/lib/constants';
-import { Shop, MeterReading, Payment } from '@/types';
+import { Shop, MeterReading, Payment, Invoice } from '@/types';
 import { PageLoading } from '@/components/ui/LoadingSpinner';
 import Link from 'next/link';
 
-// Helper to calculate monthly revenue from payments
-function calculateMonthlyRevenue(payments: Payment[]): { month: string; revenue: number; count: number }[] {
+// Helper to calculate monthly revenue from payments AND paid invoices
+function calculateMonthlyRevenue(payments: Payment[], invoices: Invoice[]): { month: string; revenue: number; count: number }[] {
     const now = new Date();
     const last6Months: { month: string; revenue: number; count: number }[] = [];
 
@@ -37,20 +37,27 @@ function calculateMonthlyRevenue(payments: Payment[]): { month: string; revenue:
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthIndex = date.getMonth();
         const year = date.getFullYear();
+        const monthStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
 
-        // Filter payments for this month (only confirmed/verified ones)
+        // Income from old payments table (verified slips)
         const monthPayments = payments.filter(p => {
             const pDate = new Date(p.createdAt);
             return pDate.getMonth() === monthIndex &&
                 pDate.getFullYear() === year &&
                 p.slipVerifyStatus === 'verified';
         });
+        const paymentRevenue = monthPayments.reduce((sum, p) => sum + p.amount, 0);
 
-        const revenue = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+        // Income from paid invoices
+        const monthInvoices = invoices.filter(i =>
+            i.status === 'paid' && i.paidAt && i.paidAt.startsWith(monthStr)
+        );
+        const invoiceRevenue = monthInvoices.reduce((sum, i) => sum + i.totalAmount, 0);
+
         last6Months.push({
             month: THAI_MONTH_NAMES[monthIndex],
-            revenue,
-            count: monthPayments.length
+            revenue: paymentRevenue + invoiceRevenue,
+            count: monthPayments.length + monthInvoices.length
         });
     }
 
@@ -60,6 +67,7 @@ function calculateMonthlyRevenue(payments: Payment[]): { month: string; revenue:
 export default function AdminDashboard() {
     const [shops, setShops] = useState<Shop[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalShops: 0,
@@ -73,13 +81,15 @@ export default function AdminDashboard() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [shopsData, paymentsData, statsData] = await Promise.all([
+                const [shopsData, paymentsData, invoicesData, statsData] = await Promise.all([
                     getShops(),
                     getPayments(),
+                    getInvoices(),
                     getStatistics()
                 ]);
                 setShops(shopsData);
                 setPayments(paymentsData);
+                setInvoices(invoicesData);
                 setStats(statsData);
             } catch (error) {
                 console.error('Error loading dashboard data:', error);
@@ -173,14 +183,14 @@ export default function AdminDashboard() {
                 <div className="card p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-lg font-semibold">รายได้รายเดือน</h2>
-                        {calculateMonthlyRevenue(payments).some(d => d.revenue > 0) && (
+                        {calculateMonthlyRevenue(payments, invoices).some(d => d.revenue > 0) && (
                             <span className="badge badge-info">6 เดือนล่าสุด</span>
                         )}
                     </div>
                     <div className="h-64">
-                        {calculateMonthlyRevenue(payments).some(d => d.revenue > 0) ? (
+                        {calculateMonthlyRevenue(payments, invoices).some(d => d.revenue > 0) ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={calculateMonthlyRevenue(payments)}>
+                                <AreaChart data={calculateMonthlyRevenue(payments, invoices)}>
                                     <defs>
                                         <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -224,9 +234,9 @@ export default function AdminDashboard() {
                         <h2 className="text-lg font-semibold">จำนวนการชำระเงิน</h2>
                     </div>
                     <div className="h-64">
-                        {calculateMonthlyRevenue(payments).some(d => d.count > 0) ? (
+                        {calculateMonthlyRevenue(payments, invoices).some(d => d.count > 0) ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={calculateMonthlyRevenue(payments)}>
+                                <BarChart data={calculateMonthlyRevenue(payments, invoices)}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                     <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
                                     <YAxis stroke="#6b7280" fontSize={12} />
