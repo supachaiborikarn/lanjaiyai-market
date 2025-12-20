@@ -26,109 +26,111 @@ export function generateContractPDF(data: ContractPDFData): void {
         }
         @page {
             size: A4;
-            margin: 20mm;
+            margin: 12mm;
         }
         body {
             font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif;
-            font-size: 14px;
-            line-height: 1.6;
+            font-size: 12px;
+            line-height: 1.4;
             color: #333;
             background: white;
-            padding: 40px;
+            padding: 15px;
         }
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 12px;
             border-bottom: 2px solid #333;
-            padding-bottom: 20px;
+            padding-bottom: 8px;
         }
         .header h1 {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
         .header h2 {
-            font-size: 18px;
+            font-size: 13px;
             color: #666;
         }
         .contract-number {
             text-align: center;
-            font-size: 16px;
-            margin-bottom: 25px;
+            font-size: 13px;
+            margin-bottom: 10px;
             color: #555;
         }
         .section {
-            margin-bottom: 25px;
+            margin-bottom: 10px;
         }
         .section-title {
-            font-size: 16px;
+            font-size: 13px;
             font-weight: bold;
             color: #1a56db;
-            margin-bottom: 12px;
-            padding-bottom: 5px;
+            margin-bottom: 6px;
+            padding-bottom: 3px;
             border-bottom: 1px solid #e5e7eb;
         }
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 6px;
         }
         .info-item {
-            padding: 10px 15px;
+            padding: 6px 8px;
             background: #f9fafb;
-            border-radius: 8px;
+            border-radius: 4px;
         }
         .info-label {
-            font-size: 12px;
+            font-size: 10px;
             color: #666;
-            margin-bottom: 3px;
+            margin-bottom: 1px;
         }
         .info-value {
             font-weight: 600;
-            font-size: 15px;
+            font-size: 12px;
         }
         .full-width {
             grid-column: 1 / -1;
         }
         .terms-list {
-            padding-left: 20px;
+            padding-left: 18px;
+            font-size: 11px;
         }
         .terms-list li {
-            margin-bottom: 8px;
-            text-align: justify;
+            margin-bottom: 3px;
         }
         .signatures {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            margin-top: 50px;
-            padding-top: 30px;
+            gap: 30px;
+            margin-top: 15px;
+            padding-top: 10px;
         }
         .signature-box {
             text-align: center;
         }
         .signature-line {
             border-bottom: 1px dashed #333;
-            height: 60px;
-            margin-bottom: 10px;
+            height: 35px;
+            margin-bottom: 5px;
         }
         .signature-name {
             font-weight: 600;
+            font-size: 11px;
         }
         .signature-label {
-            font-size: 12px;
+            font-size: 10px;
             color: #666;
         }
         .date-line {
             text-align: center;
-            margin-top: 30px;
+            margin-top: 10px;
+            font-size: 11px;
         }
         .footer {
             text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
+            margin-top: 10px;
+            padding-top: 8px;
             border-top: 1px solid #e5e7eb;
-            font-size: 12px;
+            font-size: 10px;
             color: #888;
         }
         @media print {
