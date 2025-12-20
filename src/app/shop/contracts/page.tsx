@@ -156,7 +156,7 @@ export default function ShopContractsPage() {
                                 setSelectedContract(pendingContract);
                                 setIsDetailModalOpen(true);
                             }}
-                            className="btn-primary"
+                            className="btn btn-primary"
                         >
                             ดูสัญญา
                         </button>
@@ -304,14 +304,14 @@ export default function ShopContractsPage() {
                         <div className="flex gap-3 pt-4">
                             <button
                                 onClick={() => setIsDetailModalOpen(false)}
-                                className="btn-secondary flex-1"
+                                className="btn btn-secondary flex-1"
                             >
                                 ปิด
                             </button>
                             {selectedContract.status === 'pending_signature' && (
                                 <button
                                     onClick={() => setIsSignatureModalOpen(true)}
-                                    className="btn-primary flex-1"
+                                    className="btn btn-primary flex-1"
                                 >
                                     <Edit3 size={18} />
                                     ลงนามสัญญา

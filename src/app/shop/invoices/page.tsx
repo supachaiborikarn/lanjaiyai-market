@@ -403,7 +403,7 @@ export default function ShopInvoicesPage() {
 
                         {/* Actions */}
                         <div className="flex gap-3">
-                            <button onClick={() => setIsDetailModalOpen(false)} className="btn-secondary flex-1">
+                            <button onClick={() => setIsDetailModalOpen(false)} className="btn btn-secondary flex-1">
                                 ปิด
                             </button>
                             {(selectedInvoice.status === 'sent' ||
@@ -414,7 +414,7 @@ export default function ShopInvoicesPage() {
                                             setIsDetailModalOpen(false);
                                             openPaymentModal(selectedInvoice);
                                         }}
-                                        className="btn-primary flex-1"
+                                        className="btn btn-primary flex-1"
                                     >
                                         <Upload size={18} />
                                         ชำระเงิน
@@ -481,14 +481,14 @@ export default function ShopInvoicesPage() {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setIsPaymentModalOpen(false)}
-                                className="btn-secondary flex-1"
+                                className="btn btn-secondary flex-1"
                                 disabled={isSubmitting}
                             >
                                 ยกเลิก
                             </button>
                             <button
                                 onClick={handleSubmitPayment}
-                                className="btn-primary flex-1"
+                                className="btn btn-primary flex-1"
                                 disabled={!slipImageUrl || isSubmitting}
                             >
                                 {isSubmitting ? (

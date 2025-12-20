@@ -286,7 +286,7 @@ export default function InvoicesPage() {
                     <div className="flex flex-col sm:flex-row gap-2">
                         <button
                             onClick={handleSendAll}
-                            className="btn-secondary text-sm w-full sm:w-auto"
+                            className="btn btn-secondary text-sm w-full sm:w-auto"
                             disabled={draftCount === 0}
                         >
                             <Send size={18} />
@@ -294,7 +294,7 @@ export default function InvoicesPage() {
                         </button>
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="btn-primary text-sm w-full sm:w-auto"
+                            className="btn btn-primary text-sm w-full sm:w-auto"
                         >
                             <Plus size={18} />
                             สร้างใบบิล
@@ -529,10 +529,10 @@ export default function InvoicesPage() {
                         </p>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={() => setIsCreateModalOpen(false)} className="btn-secondary flex-1">
+                        <button onClick={() => setIsCreateModalOpen(false)} className="btn btn-secondary flex-1">
                             ยกเลิก
                         </button>
-                        <button onClick={handleCreateMonthlyInvoices} className="btn-primary flex-1">
+                        <button onClick={handleCreateMonthlyInvoices} className="btn btn-primary flex-1">
                             <Plus size={18} />
                             สร้างใบบิล
                         </button>
@@ -638,7 +638,7 @@ export default function InvoicesPage() {
                                             {payment.status === 'pending' && (
                                                 <button
                                                     onClick={() => openVerifyModal(payment)}
-                                                    className="btn-primary w-full mt-3"
+                                                    className="btn btn-primary w-full mt-3"
                                                 >
                                                     <Eye size={18} />
                                                     ตรวจสอบสลิป
@@ -666,7 +666,7 @@ export default function InvoicesPage() {
                                         handleSendInvoice(selectedInvoice);
                                         setIsDetailModalOpen(false);
                                     }}
-                                    className="btn-primary w-full"
+                                    className="btn btn-primary w-full"
                                 >
                                     <Send size={18} />
                                     ส่งแจ้งร้านค้า
@@ -681,21 +681,36 @@ export default function InvoicesPage() {
                                                 setUploadSlipUrl('');
                                                 setIsUploadSlipModalOpen(true);
                                             }}
-                                            className="btn-primary w-full"
+                                            className="btn btn-primary w-full"
                                         >
                                             <Upload size={18} />
                                             อัพโหลดสลิปแทนร้านค้า
                                         </button>
                                         <button
                                             onClick={() => setIsManualClearModalOpen(true)}
-                                            className="btn-success w-full"
+                                            className="btn btn-success w-full"
                                         >
                                             <CheckCircle size={18} />
                                             เคลียร์บิลด้วยตนเอง
                                         </button>
                                     </>
                                 )}
-                            <button onClick={() => setIsDetailModalOpen(false)} className="btn-secondary w-full">
+                            {/* Delete Button - สำหรับลบใบวางบิล (ยกเว้นสถานะ paid) */}
+                            {selectedInvoice.status !== 'paid' && (
+                                <button
+                                    onClick={() => {
+                                        if (confirm(`ต้องการลบใบบิล ${selectedInvoice.invoiceNumber} หรือไม่?`)) {
+                                            handleDelete(selectedInvoice);
+                                            setIsDetailModalOpen(false);
+                                        }
+                                    }}
+                                    className="btn btn-danger w-full"
+                                >
+                                    <Trash2 size={18} />
+                                    ลบใบวางบิล
+                                </button>
+                            )}
+                            <button onClick={() => setIsDetailModalOpen(false)} className="btn btn-secondary w-full">
                                 ปิด
                             </button>
                         </div>
@@ -756,7 +771,7 @@ export default function InvoicesPage() {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => handleVerify('rejected')}
-                                className="btn-danger flex-1"
+                                className="btn btn-danger flex-1"
                                 disabled={isSubmitting}
                             >
                                 {isSubmitting ? (
@@ -768,7 +783,7 @@ export default function InvoicesPage() {
                             </button>
                             <button
                                 onClick={() => handleVerify('verified')}
-                                className="btn-success flex-1"
+                                className="btn btn-success flex-1"
                                 disabled={isSubmitting}
                             >
                                 {isSubmitting ? (
@@ -823,14 +838,14 @@ export default function InvoicesPage() {
                     <div className="flex gap-3">
                         <button
                             onClick={() => setIsManualClearModalOpen(false)}
-                            className="btn-secondary flex-1"
+                            className="btn btn-secondary flex-1"
                             disabled={isSubmitting}
                         >
                             ยกเลิก
                         </button>
                         <button
                             onClick={handleManualClear}
-                            className="btn-success flex-1"
+                            className="btn btn-success flex-1"
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? (
@@ -892,14 +907,14 @@ export default function InvoicesPage() {
                     <div className="flex gap-3">
                         <button
                             onClick={() => setIsUploadSlipModalOpen(false)}
-                            className="btn-secondary flex-1"
+                            className="btn btn-secondary flex-1"
                             disabled={isSubmitting}
                         >
                             ยกเลิก
                         </button>
                         <button
                             onClick={handleUploadSlip}
-                            className="btn-primary flex-1"
+                            className="btn btn-primary flex-1"
                             disabled={!uploadSlipUrl || isSubmitting}
                         >
                             {isSubmitting ? (

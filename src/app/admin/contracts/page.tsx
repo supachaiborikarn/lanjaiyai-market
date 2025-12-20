@@ -173,7 +173,7 @@ export default function AdminContractsPage() {
                 </div>
                 <button
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     <Plus size={18} />
                     สร้างสัญญาใหม่
@@ -298,7 +298,7 @@ export default function AdminContractsPage() {
                                                             setSelectedContract(contract);
                                                             setIsDetailModalOpen(true);
                                                         }}
-                                                        className="btn-icon"
+                                                        className="btn btn-icon"
                                                         title="ดูรายละเอียด"
                                                     >
                                                         <Eye size={18} />
@@ -309,7 +309,7 @@ export default function AdminContractsPage() {
                                                                 setSelectedContract(contract);
                                                                 setIsSignatureModalOpen(true);
                                                             }}
-                                                            className="btn-icon text-blue-600"
+                                                            className="btn btn-icon text-blue-600"
                                                             title="ส่งให้ลงนาม"
                                                         >
                                                             <Send size={18} />
@@ -407,14 +407,14 @@ export default function AdminContractsPage() {
                     <div className="flex gap-3 pt-4">
                         <button
                             onClick={() => setIsCreateModalOpen(false)}
-                            className="btn-secondary flex-1"
+                            className="btn btn-secondary flex-1"
                         >
                             ยกเลิก
                         </button>
                         <button
                             onClick={handleCreateContract}
                             disabled={isSubmitting}
-                            className="btn-primary flex-1"
+                            className="btn btn-primary flex-1"
                         >
                             {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
                             สร้างสัญญา
@@ -485,7 +485,7 @@ export default function AdminContractsPage() {
                         <div className="flex gap-3 pt-4">
                             <button
                                 onClick={() => setIsDetailModalOpen(false)}
-                                className="btn-secondary flex-1"
+                                className="btn btn-secondary flex-1"
                             >
                                 ปิด
                             </button>
@@ -494,7 +494,7 @@ export default function AdminContractsPage() {
                                     onClick={() => {
                                         setIsSignatureModalOpen(true);
                                     }}
-                                    className="btn-primary flex-1"
+                                    className="btn btn-primary flex-1"
                                 >
                                     <Send size={18} />
                                     ส่งให้ลงนาม
