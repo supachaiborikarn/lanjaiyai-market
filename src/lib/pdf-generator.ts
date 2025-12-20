@@ -26,115 +26,141 @@ export function generateContractPDF(data: ContractPDFData): void {
         }
         @page {
             size: A4;
-            margin: 12mm;
+            margin: 15mm;
+        }
+        html, body {
+            height: 100%;
         }
         body {
             font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
+            font-size: 14px;
+            line-height: 1.5;
             color: #333;
             background: white;
-            padding: 15px;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
         .header {
             text-align: center;
-            margin-bottom: 12px;
-            border-bottom: 2px solid #333;
-            padding-bottom: 8px;
+            margin-bottom: 25px;
+            border-bottom: 3px solid #1a56db;
+            padding-bottom: 15px;
         }
         .header h1 {
-            font-size: 18px;
+            font-size: 26px;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 5px;
+            color: #1a56db;
         }
         .header h2 {
-            font-size: 13px;
+            font-size: 16px;
             color: #666;
         }
         .contract-number {
             text-align: center;
-            font-size: 13px;
-            margin-bottom: 10px;
+            font-size: 16px;
+            margin-bottom: 20px;
             color: #555;
+            font-weight: 500;
         }
         .section {
-            margin-bottom: 10px;
+            margin-bottom: 20px;
         }
         .section-title {
-            font-size: 13px;
+            font-size: 16px;
             font-weight: bold;
             color: #1a56db;
-            margin-bottom: 6px;
-            padding-bottom: 3px;
-            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #e5e7eb;
         }
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            gap: 6px;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
         .info-item {
-            padding: 6px 8px;
-            background: #f9fafb;
-            border-radius: 4px;
+            padding: 12px 15px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            border-left: 4px solid #1a56db;
         }
         .info-label {
-            font-size: 10px;
+            font-size: 12px;
             color: #666;
-            margin-bottom: 1px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
         }
         .info-value {
             font-weight: 600;
-            font-size: 12px;
+            font-size: 16px;
+            color: #111;
         }
         .full-width {
             grid-column: 1 / -1;
         }
+        .terms-section {
+            flex: 1;
+            margin-bottom: 20px;
+        }
         .terms-list {
-            padding-left: 18px;
-            font-size: 11px;
+            padding-left: 25px;
+            font-size: 14px;
         }
         .terms-list li {
-            margin-bottom: 3px;
+            margin-bottom: 10px;
+            line-height: 1.6;
         }
         .signatures {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 15px;
-            padding-top: 10px;
+            gap: 60px;
+            margin-top: auto;
+            padding-top: 30px;
         }
         .signature-box {
             text-align: center;
         }
         .signature-line {
-            border-bottom: 1px dashed #333;
-            height: 35px;
-            margin-bottom: 5px;
+            border-bottom: 2px dashed #333;
+            height: 50px;
+            margin-bottom: 10px;
         }
         .signature-name {
             font-weight: 600;
-            font-size: 11px;
+            font-size: 14px;
         }
         .signature-label {
-            font-size: 10px;
+            font-size: 12px;
             color: #666;
+            margin-top: 5px;
         }
         .date-line {
             text-align: center;
-            margin-top: 10px;
-            font-size: 11px;
+            margin-top: 25px;
+            font-size: 14px;
+            font-weight: 500;
         }
         .footer {
             text-align: center;
-            margin-top: 10px;
-            padding-top: 8px;
+            margin-top: 20px;
+            padding-top: 15px;
             border-top: 1px solid #e5e7eb;
-            font-size: 10px;
+            font-size: 11px;
             color: #888;
         }
         @media print {
-            body { padding: 0; }
+            body { 
+                padding: 0;
+                min-height: auto;
+            }
             .no-print { display: none; }
         }
     </style>
@@ -206,7 +232,7 @@ export function generateContractPDF(data: ContractPDFData): void {
     </div>
     ` : ''}
     
-    <div class="section">
+    <div class="section terms-section">
         <div class="section-title">📜 เงื่อนไขทั่วไป</div>
         <ol class="terms-list">
             <li>ผู้เช่าตกลงชำระค่าเช่าภายในวันที่ 15 ของทุกเดือน หากชำระล่าช้าจะมีค่าปรับ</li>
