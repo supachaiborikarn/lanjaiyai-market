@@ -756,16 +756,14 @@ export default function InvoicesPage() {
                                         </button>
                                     </>
                                 )}
-                            {/* Edit Button - สำหรับแก้ไขใบวางบิล (ยกเว้นสถานะ paid) */}
-                            {selectedInvoice.status !== 'paid' && (
-                                <button
-                                    onClick={() => openEditModal(selectedInvoice)}
-                                    className="btn btn-warning w-full"
-                                >
-                                    <Edit size={18} />
-                                    แก้ไขใบวางบิล
-                                </button>
-                            )}
+                            {/* Edit Button - สำหรับแก้ไขใบวางบิล (รวมถึงที่ชำระแล้วด้วย) */}
+                            <button
+                                onClick={() => openEditModal(selectedInvoice)}
+                                className="btn btn-warning w-full"
+                            >
+                                <Edit size={18} />
+                                แก้ไขใบวางบิล
+                            </button>
                             {/* Delete Button - สำหรับลบใบวางบิล (ยกเว้นสถานะ paid) */}
                             {selectedInvoice.status !== 'paid' && (
                                 <button

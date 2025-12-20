@@ -1,9 +1,5 @@
-import { jsPDF } from 'jspdf';
 import { Contract, Shop } from '@/types';
 import { formatCurrency, formatDate } from './utils';
-
-// Thai font is not supported by default in jsPDF
-// We'll use basic characters and formatting
 
 export interface ContractPDFData {
     contract: Contract;
@@ -14,129 +10,252 @@ export interface ContractPDFData {
 export function generateContractPDF(data: ContractPDFData): void {
     const { contract, shop, landlordName = 'ตลาดลานใจใหญ่' } = data;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    let y = 20;
+    // Create HTML content for printing
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สัญญาเช่า ${contract.contractNumber}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+        body {
+            font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            background: white;
+            padding: 40px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .header h2 {
+            font-size: 18px;
+            color: #666;
+        }
+        .contract-number {
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 25px;
+            color: #555;
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1a56db;
+            margin-bottom: 12px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .info-item {
+            padding: 10px 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        .info-value {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        .terms-list {
+            padding-left: 20px;
+        }
+        .terms-list li {
+            margin-bottom: 8px;
+            text-align: justify;
+        }
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 50px;
+            padding-top: 30px;
+        }
+        .signature-box {
+            text-align: center;
+        }
+        .signature-line {
+            border-bottom: 1px dashed #333;
+            height: 60px;
+            margin-bottom: 10px;
+        }
+        .signature-name {
+            font-weight: 600;
+        }
+        .signature-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .date-line {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #888;
+        }
+        @media print {
+            body { padding: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>สัญญาเช่าร้านค้า</h1>
+        <h2>Rental Contract Agreement</h2>
+    </div>
+    
+    <div class="contract-number">
+        <strong>เลขที่สัญญา:</strong> ${contract.contractNumber}
+    </div>
+    
+    <div class="section">
+        <div class="section-title">📋 คู่สัญญา</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">ผู้ให้เช่า</div>
+                <div class="info-value">${landlordName}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">ผู้เช่า</div>
+                <div class="info-value">${shop.ownerName}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">ชื่อร้าน</div>
+                <div class="info-value">${shop.name}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">หมายเลขแผง</div>
+                <div class="info-value">${shop.stallNumber}</div>
+            </div>
+            <div class="info-item full-width">
+                <div class="info-label">เบอร์โทรศัพท์</div>
+                <div class="info-value">${shop.phone}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <div class="section-title">📅 รายละเอียดสัญญา</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">วันเริ่มสัญญา</div>
+                <div class="info-value">${formatDate(contract.startDate)}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">วันสิ้นสุดสัญญา</div>
+                <div class="info-value">${formatDate(contract.endDate)}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">ค่าเช่ารายเดือน</div>
+                <div class="info-value" style="color: #1a56db;">${formatCurrency(contract.monthlyRent)}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">ค่ามัดจำ</div>
+                <div class="info-value">${formatCurrency(contract.depositAmount)}</div>
+            </div>
+        </div>
+    </div>
+    
+    ${contract.terms ? `
+    <div class="section">
+        <div class="section-title">📝 เงื่อนไขพิเศษ</div>
+        <div class="info-item full-width">
+            ${contract.terms}
+        </div>
+    </div>
+    ` : ''}
+    
+    <div class="section">
+        <div class="section-title">📜 เงื่อนไขทั่วไป</div>
+        <ol class="terms-list">
+            <li>ผู้เช่าตกลงชำระค่าเช่าภายในวันที่ 5 ของทุกเดือน หากชำระล่าช้าจะมีค่าปรับ</li>
+            <li>ค่าไฟฟ้าและค่าน้ำประปาเป็นค่าใช้จ่ายแยกต่างหาก โดยเรียกเก็บตามจริงในแต่ละเดือน</li>
+            <li>ห้ามผู้เช่านำพื้นที่ไปให้บุคคลอื่นเช่าช่วง โดยไม่ได้รับความยินยอมเป็นลายลักษณ์อักษร</li>
+            <li>ผู้ให้เช่ามีสิทธิ์เข้าตรวจสอบพื้นที่ได้ โดยแจ้งล่วงหน้าอย่างน้อย 24 ชั่วโมง</li>
+            <li>เงินมัดจำจะคืนให้เมื่อสิ้นสุดสัญญา หลังหักค่าเสียหาย (ถ้ามี)</li>
+            <li>หากผู้เช่าต้องการยกเลิกสัญญาก่อนกำหนด ต้องแจ้งล่วงหน้าไม่น้อยกว่า 30 วัน</li>
+        </ol>
+    </div>
+    
+    <div class="signatures">
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-name">(${landlordName})</div>
+            <div class="signature-label">ผู้ให้เช่า</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-name">(${shop.ownerName})</div>
+            <div class="signature-label">ผู้เช่า</div>
+        </div>
+    </div>
+    
+    <div class="date-line">
+        <strong>วันที่ลงนาม:</strong> _______________________________
+    </div>
+    
+    <div class="footer">
+        <p>เอกสารนี้สร้างโดยระบบบริหารจัดการตลาดลานใจใหญ่</p>
+        <p>Lanjaiyai Market Management System</p>
+    </div>
+    
+    <script>
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html>
+    `;
 
-    // Title
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('RENTAL CONTRACT', pageWidth / 2, y, { align: 'center' });
-    doc.text('สัญญาเช่าร้านค้า', pageWidth / 2, y + 8, { align: 'center' });
-
-    y += 25;
-
-    // Contract Number
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Contract No: ${contract.contractNumber}`, pageWidth / 2, y, { align: 'center' });
-
-    y += 20;
-
-    // Horizontal line
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, pageWidth - margin, y);
-
-    y += 15;
-
-    // Parties Section
-    doc.setFont('helvetica', 'bold');
-    doc.text('PARTIES:', margin, y);
-    y += 10;
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Landlord: ${landlordName}`, margin, y);
-    y += 8;
-    doc.text(`Tenant: ${shop.ownerName}`, margin, y);
-    y += 8;
-    doc.text(`Shop: ${shop.name} (Stall #${shop.stallNumber})`, margin, y);
-    y += 8;
-    doc.text(`Phone: ${shop.phone}`, margin, y);
-
-    y += 15;
-
-    // Contract Details Section
-    doc.setFont('helvetica', 'bold');
-    doc.text('CONTRACT DETAILS:', margin, y);
-    y += 10;
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Start Date: ${formatDate(contract.startDate)}`, margin, y);
-    y += 8;
-    doc.text(`End Date: ${formatDate(contract.endDate)}`, margin, y);
-    y += 8;
-    doc.text(`Monthly Rent: ${formatCurrency(contract.monthlyRent)}`, margin, y);
-    y += 8;
-    doc.text(`Deposit Amount: ${formatCurrency(contract.depositAmount)}`, margin, y);
-
-    y += 15;
-
-    // Terms Section
-    if (contract.terms) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('TERMS AND CONDITIONS:', margin, y);
-        y += 10;
-
-        doc.setFont('helvetica', 'normal');
-        const splitTerms = doc.splitTextToSize(contract.terms, pageWidth - margin * 2);
-        doc.text(splitTerms, margin, y);
-        y += splitTerms.length * 6 + 10;
+    // Open in new window for printing
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
     }
-
-    // Standard Terms
-    y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('STANDARD TERMS:', margin, y);
-    y += 10;
-
-    doc.setFont('helvetica', 'normal');
-    const standardTerms = [
-        '1. The tenant agrees to pay rent on or before the 5th of each month.',
-        '2. Utility costs (electricity and water) are separate and billed monthly.',
-        '3. The tenant shall not sublet the premises without written consent.',
-        '4. The landlord reserves the right to inspect the premises with notice.',
-        '5. Deposit will be refunded upon contract end, subject to damage assessment.'
-    ];
-
-    standardTerms.forEach(term => {
-        const splitTerm = doc.splitTextToSize(term, pageWidth - margin * 2);
-        doc.text(splitTerm, margin, y);
-        y += splitTerm.length * 6 + 3;
-    });
-
-    y += 20;
-
-    // Signature Section
-    const signatureY = Math.max(y, 220);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('SIGNATURES:', margin, signatureY);
-
-    // Landlord Signature
-    doc.setFont('helvetica', 'normal');
-    doc.text('Landlord:', margin, signatureY + 15);
-    doc.line(margin, signatureY + 30, margin + 60, signatureY + 30);
-    doc.text(`(${landlordName})`, margin, signatureY + 38);
-
-    // Tenant Signature
-    doc.text('Tenant:', pageWidth - margin - 60, signatureY + 15);
-    doc.line(pageWidth - margin - 60, signatureY + 30, pageWidth - margin, signatureY + 30);
-    doc.text(`(${shop.ownerName})`, pageWidth - margin - 60, signatureY + 38);
-
-    // Date
-    doc.text(`Date: _________________`, pageWidth / 2 - 20, signatureY + 50);
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text('Generated by Lanjaiyai Market Management System', pageWidth / 2, 285, { align: 'center' });
-
-    // Download
-    doc.save(`Contract_${contract.contractNumber}.pdf`);
 }
 
-// Generate Invoice PDF
+// Generate Invoice PDF (using HTML print)
 export interface InvoicePDFData {
     invoiceNumber: string;
     shopName: string;
@@ -148,75 +267,129 @@ export interface InvoicePDFData {
 }
 
 export function generateInvoicePDF(data: InvoicePDFData): void {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    let y = 20;
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>ใบแจ้งหนี้ ${data.invoiceNumber}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: A4; margin: 20mm; }
+        body {
+            font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            background: white;
+            padding: 40px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #1a56db;
+            padding-bottom: 20px;
+        }
+        .header h1 { font-size: 24px; color: #1a56db; }
+        .header h2 { font-size: 14px; color: #666; }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .info-label { font-size: 12px; color: #666; }
+        .info-value { font-weight: 600; font-size: 15px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th { background: #f3f4f6; font-weight: 600; }
+        .total-row { font-weight: bold; font-size: 16px; background: #e0f2fe; }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #888;
+        }
+        @media print {
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ใบแจ้งหนี้ / Invoice</h1>
+        <h2>ตลาดลานใจใหญ่</h2>
+    </div>
+    
+    <div class="info-row">
+        <div class="info-box">
+            <div class="info-label">เลขที่ใบแจ้งหนี้</div>
+            <div class="info-value">${data.invoiceNumber}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">วันที่ออก</div>
+            <div class="info-value">${formatDate(data.createdAt)}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">กำหนดชำระ</div>
+            <div class="info-value" style="color: #dc2626;">${formatDate(data.dueDate)}</div>
+        </div>
+    </div>
+    
+    <div class="info-box" style="margin-bottom: 20px;">
+        <div class="info-label">เรียกเก็บจาก</div>
+        <div class="info-value">${data.shopName}</div>
+        <div style="font-size: 13px; color: #666;">${data.ownerName}</div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 70%;">รายการ</th>
+                <th style="text-align: right;">จำนวนเงิน</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${data.items.map(item => `
+                <tr>
+                    <td>${item.description}</td>
+                    <td style="text-align: right;">${formatCurrency(item.amount)}</td>
+                </tr>
+            `).join('')}
+            <tr class="total-row">
+                <td>รวมทั้งสิ้น</td>
+                <td style="text-align: right; color: #1a56db;">${formatCurrency(data.totalAmount)}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        <p>กรุณาชำระเงินภายในวันที่กำหนด</p>
+        <p>ติดต่อสอบถาม: ตลาดลานใจใหญ่</p>
+    </div>
+    
+    <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>
+    `;
 
-    // Header
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('INVOICE', pageWidth / 2, y, { align: 'center' });
-    doc.text('ใบแจ้งหนี้', pageWidth / 2, y + 8, { align: 'center' });
-
-    y += 25;
-
-    // Invoice Info
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Invoice No: ${data.invoiceNumber}`, margin, y);
-    doc.text(`Date: ${formatDate(data.createdAt)}`, pageWidth - margin - 50, y);
-
-    y += 20;
-
-    // Customer Info
-    doc.setFont('helvetica', 'bold');
-    doc.text('BILL TO:', margin, y);
-    y += 10;
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.shopName, margin, y);
-    y += 8;
-    doc.text(data.ownerName, margin, y);
-
-    y += 20;
-
-    // Items Table Header
-    doc.setFont('helvetica', 'bold');
-    doc.text('Description', margin, y);
-    doc.text('Amount', pageWidth - margin - 30, y);
-
-    y += 5;
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 10;
-
-    // Items
-    doc.setFont('helvetica', 'normal');
-    data.items.forEach(item => {
-        doc.text(item.description, margin, y);
-        doc.text(formatCurrency(item.amount), pageWidth - margin - 30, y);
-        y += 10;
-    });
-
-    // Total
-    y += 5;
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 10;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL', margin, y);
-    doc.text(formatCurrency(data.totalAmount), pageWidth - margin - 30, y);
-
-    y += 20;
-
-    // Due Date
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Due Date: ${formatDate(data.dueDate)}`, margin, y);
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text('Lanjaiyai Market - Thank you for your business!', pageWidth / 2, 285, { align: 'center' });
-
-    doc.save(`Invoice_${data.invoiceNumber}.pdf`);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    }
 }
