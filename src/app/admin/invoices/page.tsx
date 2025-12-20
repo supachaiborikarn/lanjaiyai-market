@@ -238,26 +238,26 @@ export default function InvoicesPage() {
     return (
         <div className="animate-fadeIn">
             {/* Page Header */}
-            <div className="page-header">
-                <div>
+            <div className="page-header flex-col sm:flex-row gap-4">
+                <div className="min-w-0">
                     <h1 className="page-title">ใบวางบิล</h1>
-                    <p className="text-gray-500 mt-1">จัดการใบวางบิลและแจ้งหนี้ร้านค้า</p>
+                    <p className="text-gray-500 mt-1 text-sm">จัดการใบวางบิลและแจ้งหนี้ร้านค้า</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                     <button
                         onClick={handleSendAll}
-                        className="btn-secondary"
+                        className="btn-secondary text-sm whitespace-nowrap"
                         disabled={draftCount === 0}
                     >
-                        <Send size={18} />
-                        ส่งทั้งหมด ({draftCount})
+                        <Send size={16} />
+                        <span className="hidden sm:inline">ส่งทั้งหมด</span> ({draftCount})
                     </button>
                     <button
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="btn-primary"
+                        className="btn-primary text-sm whitespace-nowrap"
                     >
-                        <Plus size={18} />
-                        สร้างใบบิลรายเดือน
+                        <Plus size={16} />
+                        <span className="hidden sm:inline">สร้างใบบิล</span><span className="sm:hidden">สร้าง</span>
                     </button>
                 </div>
             </div>
@@ -377,15 +377,15 @@ export default function InvoicesPage() {
             {/* Invoices Table */}
             <div className="card overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="data-table">
+                    <table className="data-table" style={{ minWidth: '700px' }}>
                         <thead>
                             <tr>
-                                <th>เลขที่ใบบิล</th>
-                                <th>ร้านค้า</th>
-                                <th>ยอดรวม</th>
-                                <th>กำหนดชำระ</th>
-                                <th>สถานะ</th>
-                                <th>จัดการ</th>
+                                <th className="whitespace-nowrap">เลขที่ใบบิล</th>
+                                <th className="whitespace-nowrap">ร้านค้า</th>
+                                <th className="whitespace-nowrap">ยอดรวม</th>
+                                <th className="whitespace-nowrap">กำหนดชำระ</th>
+                                <th className="whitespace-nowrap">สถานะ</th>
+                                <th className="whitespace-nowrap">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody>
