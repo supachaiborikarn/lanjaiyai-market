@@ -28,6 +28,7 @@ const adminMenuItems: MenuItem[] = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { href: '/admin/shops', label: 'จัดการร้านค้า', icon: <Store size={20} /> },
     { href: '/admin/users', label: 'จัดการผู้ใช้', icon: <Users size={20} /> },
+    { href: '/admin/contracts', label: 'สัญญาเช่า', icon: <FileText size={20} /> },
     { href: '/admin/meters', label: 'จดมิเตอร์', icon: <Zap size={20} /> },
     { href: '/admin/invoices', label: 'ใบวางบิล', icon: <Receipt size={20} /> },
     { href: '/admin/payments', label: 'การชำระเงิน', icon: <CreditCard size={20} /> },
@@ -36,6 +37,7 @@ const adminMenuItems: MenuItem[] = [
 
 const shopMenuItems: MenuItem[] = [
     { href: '/shop/dashboard', label: 'หน้าหลัก', icon: <LayoutDashboard size={20} /> },
+    { href: '/shop/contracts', label: 'สัญญาเช่า', icon: <FileText size={20} /> },
     { href: '/shop/invoices', label: 'ใบวางบิล', icon: <Receipt size={20} /> },
     { href: '/shop/payments', label: 'ชำระเงิน', icon: <CreditCard size={20} /> }
 ];

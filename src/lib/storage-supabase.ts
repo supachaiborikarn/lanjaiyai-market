@@ -1,5 +1,5 @@
-import { supabase, DbShop, DbUser, DbMeterReading, DbPayment, DbRentSlip, DbInvoice, DbInvoicePayment } from './supabase';
-import { User, Shop, MeterReading, Payment, Invoice, InvoiceItem, InvoicePayment, RentSlip, ELECTRICITY_RATE, WATER_FLAT_RATE } from '@/types';
+import { supabase, DbShop, DbUser, DbMeterReading, DbPayment, DbRentSlip, DbInvoice, DbInvoicePayment, DbContract } from './supabase';
+import { User, Shop, MeterReading, Payment, Invoice, InvoiceItem, InvoicePayment, RentSlip, Contract, ContractStatus, ELECTRICITY_RATE, WATER_FLAT_RATE } from '@/types';
 
 // ==================== Helper Functions ====================
 function dbShopToShop(db: DbShop): Shop {
@@ -901,3 +901,155 @@ export async function getInvoicesPendingVerification(): Promise<Invoice[]> {
     return (data || []).map(dbInvoiceToInvoice);
 }
 
+// ==================== Contract Functions ====================
+function dbContractToContract(db: DbContract): Contract {
+    return {
+        id: db.id,
+        shopId: db.shop_id,
+        contractNumber: db.contract_number,
+        startDate: db.start_date,
+        endDate: db.end_date,
+        monthlyRent: db.monthly_rent,
+        depositAmount: db.deposit_amount,
+        terms: db.terms || undefined,
+        status: db.status as ContractStatus,
+        landlordSignatureUrl: db.landlord_signature_url || undefined,
+        tenantSignatureUrl: db.tenant_signature_url || undefined,
+        signedAt: db.signed_at || undefined,
+        createdAt: db.created_at
+    };
+}
+
+function generateContractNumber(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `CTR-${year}${month}-${random}`;
+}
+
+export async function getContracts(): Promise<Contract[]> {
+    const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching contracts:', error);
+        return [];
+    }
+    return (data || []).map(dbContractToContract);
+}
+
+export async function getContractById(id: string): Promise<Contract | null> {
+    const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error) {
+        console.error('Error fetching contract:', error);
+        return null;
+    }
+    return dbContractToContract(data);
+}
+
+export async function getContractsByShop(shopId: string): Promise<Contract[]> {
+    const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('shop_id', shopId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching contracts:', error);
+        return [];
+    }
+    return (data || []).map(dbContractToContract);
+}
+
+export async function addContract(contract: Omit<Contract, 'id' | 'contractNumber' | 'createdAt'>): Promise<Contract> {
+    const dbData = {
+        shop_id: contract.shopId,
+        contract_number: generateContractNumber(),
+        start_date: contract.startDate,
+        end_date: contract.endDate,
+        monthly_rent: contract.monthlyRent,
+        deposit_amount: contract.depositAmount,
+        terms: contract.terms || null,
+        status: contract.status
+    };
+
+    const { data, error } = await supabase
+        .from('contracts')
+        .insert(dbData)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error adding contract:', error);
+        throw error;
+    }
+    return dbContractToContract(data);
+}
+
+export async function updateContract(id: string, updates: Partial<Contract>): Promise<Contract | null> {
+    const dbUpdates: Partial<DbContract> = {};
+
+    if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+    if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+    if (updates.monthlyRent !== undefined) dbUpdates.monthly_rent = updates.monthlyRent;
+    if (updates.depositAmount !== undefined) dbUpdates.deposit_amount = updates.depositAmount;
+    if (updates.terms !== undefined) dbUpdates.terms = updates.terms || null;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.landlordSignatureUrl !== undefined) dbUpdates.landlord_signature_url = updates.landlordSignatureUrl || null;
+    if (updates.tenantSignatureUrl !== undefined) dbUpdates.tenant_signature_url = updates.tenantSignatureUrl || null;
+    if (updates.signedAt !== undefined) dbUpdates.signed_at = updates.signedAt || null;
+
+    const { data, error } = await supabase
+        .from('contracts')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating contract:', error);
+        return null;
+    }
+    return dbContractToContract(data);
+}
+
+export async function signContract(id: string, tenantSignatureUrl: string): Promise<Contract | null> {
+    return updateContract(id, {
+        tenantSignatureUrl,
+        status: 'signed',
+        signedAt: new Date().toISOString()
+    });
+}
+
+export async function sendContractForSignature(id: string, landlordSignatureUrl?: string): Promise<Contract | null> {
+    return updateContract(id, {
+        landlordSignatureUrl,
+        status: 'pending_signature'
+    });
+}
+
+export async function getActiveContractByShop(shopId: string): Promise<Contract | null> {
+    const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('shop_id', shopId)
+        .eq('status', 'signed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    if (error) {
+        if (error.code === 'PGRST116') return null; // No rows found
+        console.error('Error fetching active contract:', error);
+        return null;
+    }
+    return dbContractToContract(data);
+}
