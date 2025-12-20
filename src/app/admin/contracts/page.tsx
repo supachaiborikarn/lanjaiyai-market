@@ -12,7 +12,8 @@ import {
     Store,
     Calendar,
     Loader2,
-    XCircle
+    XCircle,
+    Download
 } from 'lucide-react';
 import {
     getShops,
@@ -25,6 +26,7 @@ import { Shop, Contract, ContractStatus, CONTRACT_STATUS_LABELS } from '@/types'
 import { Modal } from '@/components/ui/Modal';
 import { showToast } from '@/components/ui/Toast';
 import { SignaturePad } from '@/components/ui/SignaturePad';
+import { generateContractPDF } from '@/lib/pdf-generator';
 
 export default function AdminContractsPage() {
     const [shops, setShops] = useState<Shop[]>([]);
@@ -482,24 +484,44 @@ export default function AdminContractsPage() {
                             </div>
                         )}
 
-                        <div className="flex gap-3 pt-4">
+                        <div className="flex flex-col gap-3 pt-4">
+                            {/* Download PDF Button */}
                             <button
-                                onClick={() => setIsDetailModalOpen(false)}
-                                className="btn btn-secondary flex-1"
+                                onClick={() => {
+                                    const shop = getShop(selectedContract.shopId);
+                                    if (shop) {
+                                        generateContractPDF({
+                                            contract: selectedContract,
+                                            shop
+                                        });
+                                        showToast('ดาวน์โหลด PDF สำเร็จ', 'success');
+                                    }
+                                }}
+                                className="btn btn-info w-full"
                             >
-                                ปิด
+                                <Download size={18} />
+                                ดาวน์โหลดสัญญา PDF
                             </button>
-                            {selectedContract.status === 'draft' && (
+
+                            <div className="flex gap-3">
                                 <button
-                                    onClick={() => {
-                                        setIsSignatureModalOpen(true);
-                                    }}
-                                    className="btn btn-primary flex-1"
+                                    onClick={() => setIsDetailModalOpen(false)}
+                                    className="btn btn-secondary flex-1"
                                 >
-                                    <Send size={18} />
-                                    ส่งให้ลงนาม
+                                    ปิด
                                 </button>
-                            )}
+                                {selectedContract.status === 'draft' && (
+                                    <button
+                                        onClick={() => {
+                                            setIsSignatureModalOpen(true);
+                                        }}
+                                        className="btn btn-primary flex-1"
+                                    >
+                                        <Send size={18} />
+                                        ส่งให้ลงนาม
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
