@@ -9,26 +9,40 @@ import {
     XCircle,
     Clock,
     Eye,
-    Filter
+    Filter,
+    Plus
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { SlipUploader } from '@/components/ui/SlipUploader';
 import { showToast } from '@/components/ui/Toast';
 import {
     getShops,
-    getPayments,
-    getMeterReadings,
-    addPayment,
-    updatePayment,
-    updateMeterReading
+    getInvoices,
+    getAllInvoicePayments,
+    addInvoicePayment,
+    verifyInvoicePayment,
+    getCurrentUser
 } from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getCurrentMonth, getMonthName } from '@/lib/utils';
-import { Shop, Payment, MeterReading, SlipAnalysisResult, SLIP_STATUS_LABELS, PAYMENT_TYPE_LABELS } from '@/types';
+import { Shop, Invoice, InvoicePayment, SlipAnalysisResult } from '@/types';
+
+// Extended type to include invoice info
+interface PaymentWithInvoice extends InvoicePayment {
+    invoice?: Invoice;
+    shop?: Shop;
+}
+
+const PAYMENT_STATUS_LABELS = {
+    pending: 'รอตรวจสอบ',
+    verified: 'อนุมัติแล้ว',
+    rejected: 'ปฏิเสธ'
+};
 
 export default function PaymentsPage() {
     const [shops, setShops] = useState<Shop[]>([]);
-    const [payments, setPayments] = useState<Payment[]>([]);
-    const [meters, setMeters] = useState<MeterReading[]>([]);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [invoicePayments, setInvoicePayments] = useState<PaymentWithInvoice[]>([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
@@ -37,17 +51,16 @@ export default function PaymentsPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
     const [isViewSlipModalOpen, setIsViewSlipModalOpen] = useState(false);
-    const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
-    const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
+    const [selectedPayment, setSelectedPayment] = useState<PaymentWithInvoice | null>(null);
+    const [verifyNote, setVerifyNote] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Form state
+    // Add payment modal state
     const [addFormData, setAddFormData] = useState({
+        invoiceId: '',
         shopId: '',
-        type: 'utilities' as 'rent' | 'utilities' | 'other',
         amount: 0,
-        description: '',
-        slipImageUrl: '',
-        slipVerifyStatus: 'pending' as 'pending' | 'verified' | 'rejected'
+        slipImageUrl: ''
     });
 
     useEffect(() => {
@@ -55,113 +68,128 @@ export default function PaymentsPage() {
     }, []);
 
     const loadData = async () => {
+        setLoading(true);
         try {
-            const [shopsData, paymentsData, metersData] = await Promise.all([
+            const [shopsData, invoicesData, paymentsData] = await Promise.all([
                 getShops(),
-                getPayments(),
-                getMeterReadings()
+                getInvoices(),
+                getAllInvoicePayments()
             ]);
             setShops(shopsData);
-            setPayments(paymentsData);
-            setMeters(metersData);
+            setInvoices(invoicesData);
+
+            // Enrich payments with invoice and shop info
+            const enrichedPayments: PaymentWithInvoice[] = paymentsData.map(payment => {
+                const invoice = invoicesData.find(i => i.id === payment.invoiceId);
+                const shop = shopsData.find(s => s.id === payment.shopId);
+                return { ...payment, invoice, shop };
+            });
+
+            setInvoicePayments(enrichedPayments);
         } catch (error) {
             console.error('Error loading data:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const getShop = (shopId: string) => shops.find(s => s.id === shopId);
+    // Get unpaid invoices for manual payment
+    const getUnpaidInvoices = () => {
+        return invoices.filter(i =>
+            i.status === 'sent' ||
+            i.status === 'overdue' ||
+            i.status === 'payment_rejected'
+        );
+    };
 
-    const filteredPayments = payments.filter(payment => {
-        const shop = getShop(payment.shopId);
-        const matchesSearch = shop?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            shop?.ownerName.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = filterStatus === 'all' || payment.slipVerifyStatus === filterStatus;
+    const filteredPayments = invoicePayments.filter(payment => {
+        const matchesSearch = payment.shop?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            payment.invoice?.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
         return matchesSearch && matchesStatus;
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    // Get pending utilities for selected month
-    const getPendingUtilities = () => {
-        const monthMeters = meters.filter(m => m.month === selectedMonth && m.status === 'pending');
-        return monthMeters.map(meter => ({
-            meter,
-            shop: getShop(meter.shopId)
-        })).filter(item => item.shop);
-    };
-
-    const pendingUtilities = getPendingUtilities();
-
-    const openAddPaymentModal = (shop: Shop, meter?: MeterReading) => {
-        setSelectedShop(shop);
-        const shopMeter = meter || meters.find(m => m.shopId === shop.id && m.month === selectedMonth);
-
-        setAddFormData({
-            shopId: shop.id,
-            type: 'utilities',
-            amount: shopMeter?.totalCost || shop.monthlyRent,
-            description: shopMeter ? `ค่าสาธารณูปโภค ${getMonthName(selectedMonth)}` : 'ค่าเช่า',
-            slipImageUrl: '',
-            slipVerifyStatus: 'pending'
-        });
-        setIsAddModalOpen(true);
-    };
+    });
 
     const handleSlipAnalyzed = (imageUrl: string, result: SlipAnalysisResult) => {
         setAddFormData(prev => ({
             ...prev,
-            slipImageUrl: imageUrl,
-            slipVerifyStatus: result.isValid ? 'verified' : 'pending'
+            slipImageUrl: imageUrl
         }));
     };
 
     const handleAddPayment = async () => {
+        if (!addFormData.invoiceId || !addFormData.slipImageUrl) {
+            showToast('กรุณาเลือกใบวางบิลและอัพโหลดสลิป', 'error');
+            return;
+        }
+
+        const selectedInvoice = invoices.find(i => i.id === addFormData.invoiceId);
+        if (!selectedInvoice) {
+            showToast('ไม่พบใบวางบิล', 'error');
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
-            await addPayment({
-                shopId: addFormData.shopId,
-                paymentDate: new Date().toISOString(),
-                amount: addFormData.amount,
-                type: addFormData.type,
-                description: addFormData.description,
+            await addInvoicePayment({
+                invoiceId: addFormData.invoiceId,
+                shopId: selectedInvoice.shopId,
+                amount: selectedInvoice.totalAmount,
                 slipImageUrl: addFormData.slipImageUrl,
-                slipVerifyStatus: addFormData.slipVerifyStatus,
-                verifiedAt: addFormData.slipVerifyStatus === 'verified' ? new Date().toISOString() : undefined
+                paymentDate: new Date().toISOString(),
+                status: 'pending'
             });
 
-            // Mark meter as paid if utilities payment
-            if (addFormData.type === 'utilities') {
-                const meter = meters.find(m => m.shopId === addFormData.shopId && m.month === selectedMonth);
-                if (meter) {
-                    await updateMeterReading(meter.id, { status: 'paid' });
-                }
-            }
-
-            showToast('บันทึกการชำระเงินเรียบร้อย', 'success');
+            showToast('บันทึกการชำระเงินเรียบร้อย รอการตรวจสอบ', 'success');
             await loadData();
             setIsAddModalOpen(false);
+            setAddFormData({
+                invoiceId: '',
+                shopId: '',
+                amount: 0,
+                slipImageUrl: ''
+            });
         } catch (error) {
             console.error('Error adding payment:', error);
             showToast('เกิดข้อผิดพลาด', 'error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    const openVerifyModal = (payment: Payment) => {
+    const openVerifyModal = (payment: PaymentWithInvoice) => {
         setSelectedPayment(payment);
+        setVerifyNote('');
         setIsVerifyModalOpen(true);
     };
 
-    const handleVerify = async (status: 'verified' | 'rejected', note?: string) => {
-        if (selectedPayment) {
-            try {
-                await updatePayment(selectedPayment.id, {
-                    slipVerifyStatus: status,
-                    slipVerifyNote: note,
-                    verifiedAt: new Date().toISOString()
-                });
-                showToast(status === 'verified' ? 'ยืนยันสลิปเรียบร้อย' : 'ปฏิเสธสลิป', status === 'verified' ? 'success' : 'error');
-                await loadData();
-                setIsVerifyModalOpen(false);
-            } catch (error) {
-                console.error('Error verifying payment:', error);
-            }
+    const handleVerify = async (status: 'verified' | 'rejected') => {
+        if (!selectedPayment) return;
+
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showToast('กรุณาเข้าสู่ระบบใหม่', 'error');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await verifyInvoicePayment(
+                selectedPayment.id,
+                status,
+                currentUser.id,
+                verifyNote
+            );
+            showToast(
+                status === 'verified' ? 'อนุมัติการชำระเงินเรียบร้อย' : 'ปฏิเสธการชำระเงินเรียบร้อย',
+                status === 'verified' ? 'success' : 'info'
+            );
+            setIsVerifyModalOpen(false);
+            await loadData();
+        } catch (error) {
+            console.error('Error verifying payment:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -171,7 +199,7 @@ export default function PaymentsPage() {
             verified: 'badge-success',
             rejected: 'badge-danger'
         };
-        return <span className={`badge ${classes[status as keyof typeof classes]}`}>{SLIP_STATUS_LABELS[status as keyof typeof SLIP_STATUS_LABELS]}</span>;
+        return <span className={`badge ${classes[status as keyof typeof classes]}`}>{PAYMENT_STATUS_LABELS[status as keyof typeof PAYMENT_STATUS_LABELS]}</span>;
     };
 
     const getStatusIcon = (status: string) => {
@@ -185,6 +213,30 @@ export default function PaymentsPage() {
         }
     };
 
+    // Generate month options
+    const monthOptions = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthOptions.push({ value, label: getMonthName(value) });
+    }
+
+    // Stats
+    const pendingCount = invoicePayments.filter(p => p.status === 'pending').length;
+    const verifiedCount = invoicePayments.filter(p => p.status === 'verified').length;
+    const verifiedAmount = invoicePayments
+        .filter(p => p.status === 'verified')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+            </div>
+        );
+    }
+
     return (
         <div className="animate-fadeIn">
             {/* Page Header */}
@@ -193,65 +245,69 @@ export default function PaymentsPage() {
                     <h1 className="page-title">การชำระเงิน</h1>
                     <p className="text-gray-500 mt-1">จัดการการรับชำระเงินและตรวจสอบสลิป</p>
                 </div>
+                <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="btn btn-primary"
+                >
+                    <Plus size={18} />
+                    เพิ่มการชำระเงิน
+                </button>
             </div>
 
-            {/* Month Selector & Pending Utilities */}
-            <div className="card p-6 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">ค่าสาธารณูปโภครอชำระ</h2>
-                    <input
-                        type="month"
-                        value={selectedMonth}
-                        onChange={e => setSelectedMonth(e.target.value)}
-                        className="input w-auto"
-                    />
+            {/* Pending Alert */}
+            {pendingCount > 0 && (
+                <div className="card p-4 mb-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-yellow-100 rounded-xl">
+                            <Clock size={24} className="text-yellow-600" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-semibold text-yellow-800">
+                                มีสลิปรอตรวจสอบ {pendingCount} รายการ
+                            </h3>
+                            <p className="text-sm text-yellow-600 mt-1">
+                                กรุณาตรวจสอบและอนุมัติการชำระเงินจากร้านค้า
+                            </p>
+                        </div>
+                    </div>
                 </div>
+            )}
 
-                {pendingUtilities.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {pendingUtilities.map(({ meter, shop }) => shop && (
-                            <div key={meter.id} className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                                            {shop.stallNumber}
-                                        </div>
-                                        <div>
-                                            <p className="font-medium">{shop.name}</p>
-                                            <p className="text-sm text-gray-500">{shop.ownerName}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-1 text-sm mb-3">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">ค่าไฟ ({meter.unitsUsed} หน่วย)</span>
-                                        <span>{formatCurrency(meter.electricityCost)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">ค่าน้ำ</span>
-                                        <span>{formatCurrency(meter.waterCost)}</span>
-                                    </div>
-                                    <div className="flex justify-between font-bold pt-2 border-t">
-                                        <span>รวม</span>
-                                        <span className="text-green-600">{formatCurrency(meter.totalCost)}</span>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => openAddPaymentModal(shop, meter)}
-                                    className="btn btn-primary w-full"
-                                >
-                                    <CreditCard size={16} />
-                                    บันทึกการชำระ
-                                </button>
-                            </div>
-                        ))}
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-yellow-100 rounded-lg">
+                            <Clock size={20} className="text-yellow-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold">{pendingCount}</p>
+                            <p className="text-sm text-gray-500">รอตรวจสอบ</p>
+                        </div>
                     </div>
-                ) : (
-                    <div className="text-center py-8 text-gray-500">
-                        <CheckCircle size={40} className="mx-auto mb-2 opacity-50 text-green-500" />
-                        <p>ไม่มียอดค้างชำระสำหรับเดือนนี้</p>
+                </div>
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                            <CheckCircle size={20} className="text-green-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold">{verifiedCount}</p>
+                            <p className="text-sm text-gray-500">อนุมัติแล้ว</p>
+                        </div>
                     </div>
-                )}
+                </div>
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <CreditCard size={20} className="text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold">{formatCurrency(verifiedAmount)}</p>
+                            <p className="text-sm text-gray-500">ยอดรับแล้ว</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Payment History */}
@@ -276,8 +332,8 @@ export default function PaymentsPage() {
                         >
                             <option value="all">ทุกสถานะ</option>
                             <option value="pending">รอตรวจสอบ</option>
-                            <option value="verified">ผ่านแล้ว</option>
-                            <option value="rejected">ไม่ผ่าน</option>
+                            <option value="verified">อนุมัติแล้ว</option>
+                            <option value="rejected">ปฏิเสธ</option>
                         </select>
                     </div>
                 </div>
@@ -289,7 +345,7 @@ export default function PaymentsPage() {
                                 <tr>
                                     <th>วันที่</th>
                                     <th>ร้านค้า</th>
-                                    <th>ประเภท</th>
+                                    <th>เลขใบบิล</th>
                                     <th>จำนวนเงิน</th>
                                     <th>สลิป</th>
                                     <th>สถานะ</th>
@@ -297,59 +353,58 @@ export default function PaymentsPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredPayments.map(payment => {
-                                    const shop = getShop(payment.shopId);
-                                    return (
-                                        <tr key={payment.id}>
-                                            <td className="text-sm">{formatDate(payment.paymentDate)}</td>
-                                            <td>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                                                        {shop?.stallNumber}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-sm">{shop?.name}</p>
-                                                        <p className="text-xs text-gray-500">{shop?.ownerName}</p>
-                                                    </div>
+                                {filteredPayments.map(payment => (
+                                    <tr key={payment.id}>
+                                        <td className="text-sm">{formatDate(payment.paymentDate)}</td>
+                                        <td>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                                    {payment.shop?.stallNumber}
                                                 </div>
-                                            </td>
-                                            <td>
-                                                <span className="badge badge-info">{PAYMENT_TYPE_LABELS[payment.type]}</span>
-                                            </td>
-                                            <td className="font-semibold">{formatCurrency(payment.amount)}</td>
-                                            <td>
-                                                {payment.slipImageUrl ? (
-                                                    <button
-                                                        onClick={() => { setSelectedPayment(payment); setIsViewSlipModalOpen(true); }}
-                                                        className="flex items-center gap-2 text-blue-600 hover:underline text-sm"
-                                                    >
-                                                        <FileImage size={16} />
-                                                        ดูสลิป
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-gray-400 text-sm">ไม่มีสลิป</span>
-                                                )}
-                                            </td>
-                                            <td>
-                                                <div className="flex items-center gap-2">
-                                                    {getStatusIcon(payment.slipVerifyStatus)}
-                                                    {getStatusBadge(payment.slipVerifyStatus)}
+                                                <div>
+                                                    <p className="font-medium text-sm">{payment.shop?.name || 'ไม่พบข้อมูล'}</p>
+                                                    <p className="text-xs text-gray-500">{payment.shop?.ownerName}</p>
                                                 </div>
-                                            </td>
-                                            <td>
-                                                {payment.slipVerifyStatus === 'pending' && payment.slipImageUrl && (
-                                                    <button
-                                                        onClick={() => openVerifyModal(payment)}
-                                                        className="btn btn-primary p-2"
-                                                        title="ตรวจสอบ"
-                                                    >
-                                                        <Eye size={16} />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span className="text-sm font-medium text-blue-600">
+                                                {payment.invoice?.invoiceNumber || '-'}
+                                            </span>
+                                        </td>
+                                        <td className="font-semibold">{formatCurrency(payment.amount)}</td>
+                                        <td>
+                                            {payment.slipImageUrl ? (
+                                                <button
+                                                    onClick={() => { setSelectedPayment(payment); setIsViewSlipModalOpen(true); }}
+                                                    className="flex items-center gap-2 text-blue-600 hover:underline text-sm"
+                                                >
+                                                    <FileImage size={16} />
+                                                    ดูสลิป
+                                                </button>
+                                            ) : (
+                                                <span className="text-gray-400 text-sm">ไม่มีสลิป</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <div className="flex items-center gap-2">
+                                                {getStatusIcon(payment.status)}
+                                                {getStatusBadge(payment.status)}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {payment.status === 'pending' && payment.slipImageUrl && (
+                                                <button
+                                                    onClick={() => openVerifyModal(payment)}
+                                                    className="btn btn-primary p-2"
+                                                    title="ตรวจสอบ"
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -361,11 +416,11 @@ export default function PaymentsPage() {
                 )}
             </div>
 
-            {/* Add Payment Modal */}
+            {/* Add Payment Modal - สำหรับ Admin ลงข้อมูลแทนร้านค้า */}
             <Modal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
-                title={`บันทึกการชำระเงิน - ${selectedShop?.name}`}
+                title="เพิ่มการชำระเงิน (ลงแทนร้านค้า)"
                 size="lg"
                 footer={
                     <>
@@ -375,48 +430,62 @@ export default function PaymentsPage() {
                         <button
                             onClick={handleAddPayment}
                             className="btn btn-primary"
-                            disabled={!addFormData.slipImageUrl}
+                            disabled={!addFormData.invoiceId || !addFormData.slipImageUrl || isSubmitting}
                         >
-                            บันทึก
+                            {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
                         </button>
                     </>
                 }
             >
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="label">ประเภท</label>
-                            <select
-                                value={addFormData.type}
-                                onChange={e => setAddFormData({ ...addFormData, type: e.target.value as 'rent' | 'utilities' | 'other' })}
-                                className="select"
-                            >
-                                <option value="utilities">ค่าสาธารณูปโภค</option>
-                                <option value="rent">ค่าเช่า</option>
-                                <option value="other">อื่นๆ</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="label">จำนวนเงิน</label>
-                            <input
-                                type="number"
-                                value={addFormData.amount}
-                                onChange={e => setAddFormData({ ...addFormData, amount: parseInt(e.target.value) })}
-                                className="input"
-                                min={0}
-                            />
-                        </div>
+                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <p className="text-sm text-blue-700">
+                            <strong>💡 สำหรับกรณีที่ร้านค้าส่งสลิปมาทางไลน์</strong><br />
+                            Admin สามารถอัพโหลดสลิปและลงข้อมูลการชำระเงินแทนร้านค้าได้ที่นี่
+                        </p>
                     </div>
 
                     <div>
-                        <label className="label">รายละเอียด</label>
-                        <input
-                            type="text"
-                            value={addFormData.description}
-                            onChange={e => setAddFormData({ ...addFormData, description: e.target.value })}
-                            className="input"
-                        />
+                        <label className="label">เลือกใบวางบิล *</label>
+                        <select
+                            value={addFormData.invoiceId}
+                            onChange={e => {
+                                const invoice = invoices.find(i => i.id === e.target.value);
+                                setAddFormData({
+                                    ...addFormData,
+                                    invoiceId: e.target.value,
+                                    shopId: invoice?.shopId || '',
+                                    amount: invoice?.totalAmount || 0
+                                });
+                            }}
+                            className="select"
+                        >
+                            <option value="">-- เลือกใบวางบิล --</option>
+                            {getUnpaidInvoices().map(invoice => {
+                                const shop = shops.find(s => s.id === invoice.shopId);
+                                return (
+                                    <option key={invoice.id} value={invoice.id}>
+                                        {invoice.invoiceNumber} - {shop?.name} ({formatCurrency(invoice.totalAmount)})
+                                    </option>
+                                );
+                            })}
+                        </select>
                     </div>
+
+                    {addFormData.invoiceId && (
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-gray-500">ร้านค้า</p>
+                                    <p className="font-medium">{shops.find(s => s.id === addFormData.shopId)?.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">ยอดที่ต้องชำระ</p>
+                                    <p className="font-bold text-lg text-green-600">{formatCurrency(addFormData.amount)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label className="label">แนบสลิปการชำระเงิน *</label>
@@ -437,8 +506,9 @@ export default function PaymentsPage() {
                 footer={
                     <>
                         <button
-                            onClick={() => handleVerify('rejected', 'สลิปไม่ถูกต้อง')}
+                            onClick={() => handleVerify('rejected')}
                             className="btn btn-danger"
+                            disabled={isSubmitting}
                         >
                             <XCircle size={16} />
                             ไม่ผ่าน
@@ -446,9 +516,10 @@ export default function PaymentsPage() {
                         <button
                             onClick={() => handleVerify('verified')}
                             className="btn btn-success"
+                            disabled={isSubmitting}
                         >
                             <CheckCircle size={16} />
-                            ยืนยัน
+                            อนุมัติ
                         </button>
                     </>
                 }
@@ -457,8 +528,8 @@ export default function PaymentsPage() {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
                             <div>
-                                <p className="font-medium">{getShop(selectedPayment.shopId)?.name}</p>
-                                <p className="text-sm text-gray-500">{selectedPayment.description}</p>
+                                <p className="font-medium">{selectedPayment.shop?.name}</p>
+                                <p className="text-sm text-gray-500">{selectedPayment.invoice?.invoiceNumber}</p>
                             </div>
                             <p className="text-xl font-bold text-green-600">{formatCurrency(selectedPayment.amount)}</p>
                         </div>
@@ -472,6 +543,17 @@ export default function PaymentsPage() {
                                 />
                             </div>
                         )}
+
+                        <div>
+                            <label className="label">หมายเหตุ (ถ้ามี)</label>
+                            <textarea
+                                value={verifyNote}
+                                onChange={e => setVerifyNote(e.target.value)}
+                                className="input"
+                                rows={2}
+                                placeholder="ระบุหมายเหตุ เช่น ยอดไม่ตรง, สลิปไม่ชัด..."
+                            />
+                        </div>
                     </div>
                 )}
             </Modal>
@@ -487,12 +569,12 @@ export default function PaymentsPage() {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
                             <div>
-                                <p className="font-medium">{getShop(selectedPayment.shopId)?.name}</p>
+                                <p className="font-medium">{selectedPayment.shop?.name}</p>
                                 <p className="text-sm text-gray-500">{formatDate(selectedPayment.paymentDate)}</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-xl font-bold">{formatCurrency(selectedPayment.amount)}</p>
-                                {getStatusBadge(selectedPayment.slipVerifyStatus)}
+                                {getStatusBadge(selectedPayment.status)}
                             </div>
                         </div>
 
@@ -506,9 +588,9 @@ export default function PaymentsPage() {
                             </div>
                         )}
 
-                        {selectedPayment.slipVerifyNote && (
+                        {selectedPayment.verifyNote && (
                             <div className="p-4 bg-red-50 rounded-xl">
-                                <p className="text-red-700 text-sm"><strong>หมายเหตุ:</strong> {selectedPayment.slipVerifyNote}</p>
+                                <p className="text-red-700 text-sm"><strong>หมายเหตุ:</strong> {selectedPayment.verifyNote}</p>
                             </div>
                         )}
                     </div>

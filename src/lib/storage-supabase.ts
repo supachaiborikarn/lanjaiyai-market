@@ -798,6 +798,19 @@ export async function addInvoicePayment(payment: Omit<InvoicePayment, 'id' | 'cr
     return dbInvoicePaymentToInvoicePayment(data);
 }
 
+export async function getAllInvoicePayments(): Promise<InvoicePayment[]> {
+    const { data, error } = await supabase
+        .from('invoice_payments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching all invoice payments:', error);
+        return [];
+    }
+    return (data || []).map(dbInvoicePaymentToInvoicePayment);
+}
+
 export async function getInvoicePaymentsByInvoice(invoiceId: string): Promise<InvoicePayment[]> {
     const { data, error } = await supabase
         .from('invoice_payments')

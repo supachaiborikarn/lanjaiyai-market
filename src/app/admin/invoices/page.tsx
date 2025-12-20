@@ -16,7 +16,8 @@ import {
     Receipt,
     Loader2,
     XCircle,
-    Image
+    Image,
+    Upload
 } from 'lucide-react';
 import {
     getShops,
@@ -29,12 +30,14 @@ import {
     getInvoicePaymentsByInvoice,
     verifyInvoicePayment,
     getCurrentUser,
-    markInvoiceAsPaid
+    markInvoiceAsPaid,
+    addInvoicePayment
 } from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getMonthName, getCurrentMonth } from '@/lib/utils';
-import { Shop, Invoice, InvoicePayment, INVOICE_STATUS_LABELS, INVOICE_ITEM_TYPE_LABELS } from '@/types';
+import { Shop, Invoice, InvoicePayment, INVOICE_STATUS_LABELS, INVOICE_ITEM_TYPE_LABELS, SlipAnalysisResult } from '@/types';
 import { Modal } from '@/components/ui/Modal';
 import { showToast } from '@/components/ui/Toast';
+import { SlipUploader } from '@/components/ui/SlipUploader';
 
 export default function InvoicesPage() {
     const [shops, setShops] = useState<Shop[]>([]);
@@ -53,6 +56,8 @@ export default function InvoicesPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isManualClearModalOpen, setIsManualClearModalOpen] = useState(false);
     const [manualClearNote, setManualClearNote] = useState('');
+    const [isUploadSlipModalOpen, setIsUploadSlipModalOpen] = useState(false);
+    const [uploadSlipUrl, setUploadSlipUrl] = useState('');
 
     useEffect(() => {
         loadData();
@@ -193,6 +198,40 @@ export default function InvoicesPage() {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleUploadSlip = async () => {
+        if (!selectedInvoice || !uploadSlipUrl) {
+            showToast('กรุณาอัพโหลดสลิป', 'error');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await addInvoicePayment({
+                invoiceId: selectedInvoice.id,
+                shopId: selectedInvoice.shopId,
+                amount: selectedInvoice.totalAmount,
+                slipImageUrl: uploadSlipUrl,
+                paymentDate: new Date().toISOString(),
+                status: 'pending'
+            });
+
+            showToast('อัพโหลดสลิปสำเร็จ รอการตรวจสอบ', 'success');
+            setIsUploadSlipModalOpen(false);
+            setIsDetailModalOpen(false);
+            setUploadSlipUrl('');
+            await loadData();
+        } catch (error) {
+            console.error('Error uploading slip:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleSlipAnalyzed = (imageUrl: string, result: SlipAnalysisResult) => {
+        setUploadSlipUrl(imageUrl);
     };
 
     const getStatusBadge = (status: string) => {
@@ -636,13 +675,25 @@ export default function InvoicesPage() {
                             {(selectedInvoice.status === 'sent' ||
                                 selectedInvoice.status === 'pending_verification' ||
                                 selectedInvoice.status === 'payment_rejected') && (
-                                    <button
-                                        onClick={() => setIsManualClearModalOpen(true)}
-                                        className="btn-success w-full"
-                                    >
-                                        <CheckCircle size={18} />
-                                        เคลียร์บิลด้วยตนเอง
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                setUploadSlipUrl('');
+                                                setIsUploadSlipModalOpen(true);
+                                            }}
+                                            className="btn-primary w-full"
+                                        >
+                                            <Upload size={18} />
+                                            อัพโหลดสลิปแทนร้านค้า
+                                        </button>
+                                        <button
+                                            onClick={() => setIsManualClearModalOpen(true)}
+                                            className="btn-success w-full"
+                                        >
+                                            <CheckCircle size={18} />
+                                            เคลียร์บิลด้วยตนเอง
+                                        </button>
+                                    </>
                                 )}
                             <button onClick={() => setIsDetailModalOpen(false)} className="btn-secondary w-full">
                                 ปิด
@@ -788,6 +839,75 @@ export default function InvoicesPage() {
                                 <CheckCircle size={18} />
                             )}
                             ยืนยันเคลียร์บิล
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Upload Slip Modal - อัพโหลดสลิปแทนร้านค้า */}
+            <Modal
+                isOpen={isUploadSlipModalOpen}
+                onClose={() => setIsUploadSlipModalOpen(false)}
+                title="อัพโหลดสลิปแทนร้านค้า"
+            >
+                <div className="space-y-6">
+                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <p className="text-sm text-blue-700">
+                            <strong>💡 สำหรับกรณีที่ร้านค้าส่งสลิปมาทางไลน์</strong><br />
+                            Admin สามารถอัพโหลดสลิปและลงข้อมูลการชำระเงินแทนร้านค้าได้ที่นี่
+                        </p>
+                    </div>
+
+                    {selectedInvoice && (
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-gray-500">ร้านค้า</p>
+                                    <p className="font-medium">{getShop(selectedInvoice.shopId)?.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">ยอดที่ต้องชำระ</p>
+                                    <p className="font-bold text-lg text-green-600">
+                                        {formatCurrency(selectedInvoice.totalAmount)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-500">เลขใบบิล</p>
+                                    <p className="font-medium">{selectedInvoice.invoiceNumber}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            แนบสลิปการชำระเงิน *
+                        </label>
+                        <SlipUploader
+                            onSlipAnalyzed={handleSlipAnalyzed}
+                            expectedAmount={selectedInvoice?.totalAmount || 0}
+                        />
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setIsUploadSlipModalOpen(false)}
+                            className="btn-secondary flex-1"
+                            disabled={isSubmitting}
+                        >
+                            ยกเลิก
+                        </button>
+                        <button
+                            onClick={handleUploadSlip}
+                            className="btn-primary flex-1"
+                            disabled={!uploadSlipUrl || isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                                <Upload size={18} />
+                            )}
+                            บันทึกการชำระเงิน
                         </button>
                     </div>
                 </div>
