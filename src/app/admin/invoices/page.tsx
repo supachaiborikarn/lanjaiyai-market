@@ -28,7 +28,8 @@ import {
     getPendingInvoicePayments,
     getInvoicePaymentsByInvoice,
     verifyInvoicePayment,
-    getCurrentUser
+    getCurrentUser,
+    markInvoiceAsPaid
 } from '@/lib/storage-supabase';
 import { formatCurrency, formatDate, getMonthName, getCurrentMonth } from '@/lib/utils';
 import { Shop, Invoice, InvoicePayment, INVOICE_STATUS_LABELS, INVOICE_ITEM_TYPE_LABELS } from '@/types';
@@ -50,6 +51,8 @@ export default function InvoicesPage() {
     const [invoicePayments, setInvoicePayments] = useState<InvoicePayment[]>([]);
     const [verifyNote, setVerifyNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isManualClearModalOpen, setIsManualClearModalOpen] = useState(false);
+    const [manualClearNote, setManualClearNote] = useState('');
 
     useEffect(() => {
         loadData();
@@ -167,6 +170,25 @@ export default function InvoicesPage() {
             await loadData();
         } catch (error) {
             console.error('Error verifying payment:', error);
+            showToast('เกิดข้อผิดพลาด', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleManualClear = async () => {
+        if (!selectedInvoice) return;
+
+        setIsSubmitting(true);
+        try {
+            await markInvoiceAsPaid(selectedInvoice.id);
+            showToast(`เคลียร์บิล ${selectedInvoice.invoiceNumber} สำเร็จ`, 'success');
+            setIsManualClearModalOpen(false);
+            setIsDetailModalOpen(false);
+            setManualClearNote('');
+            await loadData();
+        } catch (error) {
+            console.error('Error clearing invoice:', error);
             showToast('เกิดข้อผิดพลาด', 'error');
         } finally {
             setIsSubmitting(false);
@@ -545,8 +567,8 @@ export default function InvoicesPage() {
                                                     <span className="text-sm">{formatDate(payment.paymentDate)}</span>
                                                 </div>
                                                 <span className={`text-sm font-medium ${payment.status === 'verified' ? 'text-green-600' :
-                                                        payment.status === 'rejected' ? 'text-red-600' :
-                                                            'text-yellow-600'
+                                                    payment.status === 'rejected' ? 'text-red-600' :
+                                                        'text-yellow-600'
                                                     }`}>
                                                     {payment.status === 'verified' ? 'อนุมัติแล้ว' :
                                                         payment.status === 'rejected' ? 'ปฏิเสธ' : 'รอตรวจสอบ'}
@@ -596,22 +618,33 @@ export default function InvoicesPage() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-3">
-                            <button onClick={() => setIsDetailModalOpen(false)} className="btn-secondary flex-1">
-                                ปิด
-                            </button>
+                        <div className="flex flex-col gap-3">
                             {selectedInvoice.status === 'draft' && (
                                 <button
                                     onClick={() => {
                                         handleSendInvoice(selectedInvoice);
                                         setIsDetailModalOpen(false);
                                     }}
-                                    className="btn-primary flex-1"
+                                    className="btn-primary w-full"
                                 >
                                     <Send size={18} />
                                     ส่งแจ้งร้านค้า
                                 </button>
                             )}
+                            {(selectedInvoice.status === 'sent' ||
+                                selectedInvoice.status === 'pending_verification' ||
+                                selectedInvoice.status === 'payment_rejected') && (
+                                    <button
+                                        onClick={() => setIsManualClearModalOpen(true)}
+                                        className="btn-success w-full"
+                                    >
+                                        <CheckCircle size={18} />
+                                        เคลียร์บิลด้วยตนเอง
+                                    </button>
+                                )}
+                            <button onClick={() => setIsDetailModalOpen(false)} className="btn-secondary w-full">
+                                ปิด
+                            </button>
                         </div>
                     </div>
                 )}
@@ -695,6 +728,67 @@ export default function InvoicesPage() {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Manual Clear Confirmation Modal */}
+            <Modal
+                isOpen={isManualClearModalOpen}
+                onClose={() => setIsManualClearModalOpen(false)}
+                title="เคลียร์บิลด้วยตนเอง"
+            >
+                <div className="space-y-6">
+                    <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                        <div className="flex items-start gap-3">
+                            <AlertCircle size={24} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-semibold text-yellow-800">คำเตือน</p>
+                                <p className="text-sm text-yellow-700 mt-1">
+                                    การเคลียร์บิลด้วยตนเองจะทำให้ใบบิลถูกปิดโดยไม่มีหลักฐานสลิป
+                                    กรุณาใช้ในกรณีที่ลูกค้าชำระเงินสดหรือมีเหตุจำเป็นเท่านั้น
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {selectedInvoice && (
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="text-sm text-gray-500">ใบบิลเลขที่</p>
+                                    <p className="font-semibold">{selectedInvoice.invoiceNumber}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm text-gray-500">ยอดรวม</p>
+                                    <p className="font-bold text-lg text-blue-700">
+                                        {formatCurrency(selectedInvoice.totalAmount)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setIsManualClearModalOpen(false)}
+                            className="btn-secondary flex-1"
+                            disabled={isSubmitting}
+                        >
+                            ยกเลิก
+                        </button>
+                        <button
+                            onClick={handleManualClear}
+                            className="btn-success flex-1"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                                <CheckCircle size={18} />
+                            )}
+                            ยืนยันเคลียร์บิล
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );
